@@ -402,6 +402,7 @@ router.get('/script.js', async (req, res) => {
           toggleIcon.style.cssText = \`
             position: fixed;
             bottom: 20px;
+            top:80px;
             right: 20px;
             width: 56px;
             height: 56px;
@@ -449,12 +450,12 @@ router.get('/script.js', async (req, res) => {
           document.body.appendChild(toggleIcon);
 
           const chatbotWrapper = container.querySelector('.chatbot-wrapper');
-          chatbotWrapper.style.position = 'fixed';
-          chatbotWrapper.style.width = '400px';
-          chatbotWrapper.style.height = '600px';
-          chatbotWrapper.style.bottom = '90px';
-          chatbotWrapper.style.right = '20px';
-          chatbotWrapper.style.zIndex = '999';
+         chatbotWrapper.style.position = 'fixed';
+chatbotWrapper.style.width = '400px';
+chatbotWrapper.style.height = '600px';
+chatbotWrapper.style.top = '20px'; // Changed to position at top
+chatbotWrapper.style.right = '20px';
+chatbotWrapper.style.zIndex = '10000';
 
           // Theme toggle logic
           let isDarkMode = false;

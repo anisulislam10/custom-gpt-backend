@@ -49,7 +49,7 @@ router.get("/chatbot-widget.js", (req, res) => {
         border,
       }).toString();
 
-      iframe.src = 'http://localhost:5000/api/widget?' + queryParams;
+      iframe.src = 'https://custom-gpt-backend-sigma.vercel.app/api/widget?' + queryParams;
       iframe.width = width;
       iframe.height = height;
       iframe.frameBorder = "0";

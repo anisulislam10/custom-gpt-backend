@@ -71,6 +71,7 @@ app.use(cors({
       "https://custom-gpt-backend-sigma.vercel.app",
       "http://localhost",
       "http://localhost:8000",
+      "https://admin-customchatbot-app.vercel.app"
       "*",
     ];
     console.log(`CORS Origin: ${origin}`);

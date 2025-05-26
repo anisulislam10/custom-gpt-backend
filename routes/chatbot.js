@@ -45,7 +45,7 @@ const Flow = require('../models/Flow');
 
 //     // Serve chatbot data
   
-//     res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://custom-gpt-backend-sigma.vercel.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://custom-gpt-backend-sigma.vercel.app");
+//     res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://custom-gpt-backend-sigma.vercel.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' http://https://custom-gpt-backend-sigma.vercel.app");
 
 //     res.send(`
 //       <!DOCTYPE html>
@@ -151,7 +151,9 @@ if (!isPreview) {
         <div id="chatbot-container" style="width: 100%; height: 100%;"></div>
       </body>
       </html>
+      
     `);
+
   } catch (error) {
     res.status(500).json({ message: 'Failed to load chatbot', error: error.message });
   }
@@ -402,6 +404,7 @@ router.get('/script.js', async (req, res) => {
           toggleIcon.style.cssText = \`
             position: fixed;
             bottom: 20px;
+            top:80px;
             right: 20px;
             width: 56px;
             height: 56px;
@@ -449,12 +452,12 @@ router.get('/script.js', async (req, res) => {
           document.body.appendChild(toggleIcon);
 
           const chatbotWrapper = container.querySelector('.chatbot-wrapper');
-          chatbotWrapper.style.position = 'fixed';
-          chatbotWrapper.style.width = '400px';
-          chatbotWrapper.style.height = '600px';
-          chatbotWrapper.style.bottom = '90px';
-          chatbotWrapper.style.right = '20px';
-          chatbotWrapper.style.zIndex = '999';
+         chatbotWrapper.style.position = 'fixed';
+chatbotWrapper.style.width = '400px';
+chatbotWrapper.style.height = '600px';
+chatbotWrapper.style.top = '20px'; // Changed to position at top
+chatbotWrapper.style.right = '20px';
+chatbotWrapper.style.zIndex = '10000';
 
           // Theme toggle logic
           let isDarkMode = false;

@@ -137,21 +137,22 @@ if (!isPreview) {
     // Serve chatbot data
     res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://custom-gpt-backend-sigma.vercel.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://custom-gpt-backend-sigma.vercel.app");
 
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Chatbot</title>
-        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <script src="/api/chatbot/script.js"></script>
-        <script src="/api/chatbot/config.js?flowId=${req.params.flowId}&userId=${req.params.userId}&primary=${encodeURIComponent(req.query.primary || '#6366f1')}&secondary=${encodeURIComponent(req.query.secondary || '#f59e0b')}&background=${encodeURIComponent(req.query.background || '#f8fafc')}&text=${encodeURIComponent(req.query.text || '#1f2937')}&name=${encodeURIComponent(req.query.name || 'Assistant')}&avatar=${encodeURIComponent(req.query.avatar || 'https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200')}"></script>
-        <script src="/chatbot-init.js"></script>
-      </head>
-      <body>
-        <div id="chatbot-container" style="width: 100%; height: 100%;"></div>
-      </body>
-      </html>
-    `);
+ res.send(`
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Chatbot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/api/chatbot/script.js"></script>
+    <script src="/api/chatbot/config.js?flowId=${req.params.flowId}&userId=${req.params.userId}&primary=${encodeURIComponent(req.query.primary || '#6366f1')}&secondary=${encodeURIComponent(req.query.secondary || '#f59e0b')}&background=${encodeURIComponent(req.query.background || '#f8fafc')}&text=${encodeURIComponent(req.query.text || '#1f2937')}&name=${encodeURIComponent(req.query.name || 'Assistant')}&avatar=${encodeURIComponent(req.query.avatar || 'https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200')}"></script>
+    <script src="/chatbot-init.js"></script>
+  </head>
+  <body>
+    <div id="chatbot-container"></div> <!-- Removed inline styles -->
+  </body>
+  </html>
+`);
+
   } catch (error) {
     res.status(500).json({ message: 'Failed to load chatbot', error: error.message });
   }
@@ -936,63 +937,71 @@ chatbotWrapper.style.zIndex = '10000';
 
           const styleSheet = document.createElement('style');
           styleSheet.innerText = \`
-            @keyframes slide-in {
-              from { opacity: 0; transform: translateX(-10px); }
-              to { opacity: 1; transform: translateX(0); }
-            }
-            @keyframes fade-in {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-            @keyframes typing {
-              0%, 100% { transform: translateY(0); opacity: 0.7; }
-              50% { transform: translateY(-4px); opacity: 1; }
-            }
-            .chatbot-messages::-webkit-scrollbar {
-              width: 6px;
-            }
-            .chatbot-messages::-webkit-scrollbar-track {
-              background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-              border-radius: 3px;
-            }
-            .chatbot-messages::-webkit-scrollbar-thumb {
-              background: \${config.theme?.primary || '#6366f1'};
-              border-radius: 3px;
-            }
-            @media (max-width: 480px) {
-              .chatbot-wrapper {
-                width: 100vw !important;
-                height: 100vh !important;
-                border-radius: 0 !important;
-                top: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                left: 0 !important;
-              }
-              .chatbot-messages {
-                padding: 16px !important;
-                font-size: 14px !important;
-              }
-              .chatbot-input {
-                padding: 12px 16px !important;
-              }
-              .chatbot-input input {
-                font-size: 14px !important;
-              }
-              #close-chat {
-                display: block !important;
-              }
-              .message {
-                max-width: 85% !important;
-              }
-            }
-            @media (hover: none) {
-              button:hover, input:focus {
-                transform: none !important;
-                box-shadow: none !important;
-              }
-            }
-          \`;
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes typing {
+    0%, 100% { transform: translateY(0); opacity: 0.7; }
+    50% { transform: translateY(-4px); opacity: 1; }
+  }
+  #chatbot-container {
+    position: relative;
+    z-index: 10000; // Ensure container is above main content
+  }
+  .chatbot-wrapper {
+    z-index: 10000; // Reinforce high z-index
+  }
+  .chatbot-messages::-webkit-scrollbar {
+    width: 6px;
+  }
+  .chatbot-messages::-webkit-scrollbar-track {
+    background: ${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+    border-radius: 3px;
+  }
+  .chatbot-messages::-webkit-scrollbar-thumb {
+    background: ${config.theme?.primary || '#6366f1'};
+    border-radius: 3px;
+  }
+  @media (max-width: 480px) {
+    .chatbot-wrapper {
+      width: 100vw !important;
+      height: 100vh !important;
+      border-radius: 0 !important;
+      top: 0 !important; // Full-screen on mobile
+      right: 0 !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      z-index: 10000 !important; // Ensure above content on mobile
+    }
+    .chatbot-messages {
+      padding: 16px !important;
+      font-size: 14px !important;
+    }
+    .chatbot-input {
+      padding: 12px 16px !important;
+    }
+    .chatbot-input input {
+      font-size: 14px !important;
+    }
+    #close-chat {
+      display: block !important;
+    }
+    .message {
+      max-width: 85% !important;
+    }
+  }
+  @media (hover: none) {
+    button:hover, input:focus {
+      transform: none !important;
+      box-shadow: none !important;
+    }
+  }
+\`;
           document.head.appendChild(styleSheet);
 
           // Responsive adjustments

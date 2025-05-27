@@ -7,6 +7,10 @@ const Transaction = require('../models/transaction');
 const Subscription = require('../models/subscription');
 require('dotenv').config();
 
+
+  
+  // Create a package
+  const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 router.get('/getpackages', async (req, res) => {
     try {
       const packages = await Package.find().sort({ createdAt: -1 });
@@ -15,9 +19,38 @@ router.get('/getpackages', async (req, res) => {
       res.status(500).json({ error: 'Failed to fetch packages' });
     }
   });
-  
-  // Create a package
-  const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+router.get('/getpackage', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing userId in query params' });
+    }
+
+    const transaction = await Transaction.findOne({ userId });
+
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaction not found for this user' });
+    }
+
+    const packageData = await Package.findOne({ packageId: transaction.packageId });
+
+    if (!packageData) {
+      return res.status(404).json({ error: 'Package not found for this packageId' });
+    }
+
+    const userPackage = {
+      packageId: transaction.packageId,
+      name: packageData.name,
+      flowsAllowed: packageData.flowsAllowed,
+      billingPeriod: packageData.billingPeriod,
+    };
+
+    res.json({ transaction, userPackage });
+  } catch (error) {
+    console.error('Error fetching packages:', error);
+    res.status(500).json({ error: 'Failed to fetch packages' });
+  }
+})
 
   // Create a package
   router.post('/savepackages', async (req, res) => {
@@ -94,8 +127,8 @@ router.get('/getpackages', async (req, res) => {
           },
         ],
         mode: pkg.billingPeriod === 'month' || pkg.billingPeriod === 'year' ? 'subscription' : 'payment',
-        success_url: `https://custom-gpt-builder-frontend.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `https://custom-gpt-builder-frontend.vercel.app/cancel`,
+        success_url: `https://custom-gpt-backend-sigma.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `https://custom-gpt-backend-sigma.vercel.app/cancel`,
         metadata: {
           packageId,
           userId,

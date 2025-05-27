@@ -335,7 +335,7 @@ window.initChatbot = function () {
     let chatHistory = [];
     let isTyping = false;
 
-    const fetchUrl = `http://https://custom-gpt-backend-sigma.vercel.app/api/flow/${config.userId}/${config.flowId}`;
+    const fetchUrl = `https://custom-gpt-backend-sigma.vercel.app/api/flow/${config.userId}/${config.flowId}`;
     console.log('[Chatbot] Fetching flow from:', fetchUrl);
     fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
       .then((response) => {

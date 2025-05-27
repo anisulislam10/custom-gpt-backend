@@ -66,12 +66,11 @@ app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
       process.env.FRONTEND_URL,
-      "https://custom-gpt-builder-frontend.vercel.app",
-      "http://localhost:3001",
+      "https://custom-gpt-backend-sigma.vercel.app",
+      "https://admin-customchatbot-app.vercel.app",
       "https://custom-gpt-backend-sigma.vercel.app",
       "http://localhost",
       "http://localhost:8000",
-      "https://admin-customchatbot-app.vercel.app",
       "*",
     ];
     console.log(`CORS Origin: ${origin}`);
@@ -161,10 +160,10 @@ app.use(errorConverter);
 // Handle error
 app.use(errorHandler);
 
-// const PORT = process.env.PORT || 5000;
-// const server = app.listen(PORT, () => {
-//   console.log(`Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`);
-// });
+const PORT = process.env.PORT || 5000;
+const server = app.listen(PORT, () => {
+  console.log(`Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`);
+});
 
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (err) => {

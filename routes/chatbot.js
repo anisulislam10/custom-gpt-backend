@@ -71,6 +71,7 @@ const Flow = require('../models/Flow');
 router.get('/:flowId/:userId', async (req, res) => {
   console.log(`[Chatbot] Serving chatbot for flowId: ${req.params.flowId}, userId: ${req.params.userId}, domain: ${req.query.domain || 'not provided'}`);
   
+  
   try {
     const { flowId, userId } = req.params;
     const { domain, preview } = req.query;

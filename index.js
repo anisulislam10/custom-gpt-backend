@@ -66,7 +66,7 @@ app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
       process.env.FRONTEND_URL,
-      "https://custom-gpt-backend-sigma.vercel.app",
+      "https://custom-gpt-builder-frontend.vercel.app",
       "https://admin-customchatbot-app.vercel.app",
       "https://custom-gpt-backend-sigma.vercel.app",
       "http://localhost",

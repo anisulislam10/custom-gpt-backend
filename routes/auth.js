@@ -53,7 +53,7 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     // Send reset email
-    const resetUrl = `https://custom-gpt-backend-sigma.vercel.app/reset-password?token=${resetToken}`;
+    const resetUrl = `https://custom-gpt-builder-frontend.vercel.app/reset-password?token=${resetToken}`;
     await transporter.sendMail({
       to: email,
       subject: 'Password Reset Request',
@@ -106,7 +106,7 @@ router.post('/resend-verification', async (req, res) => {
     await user.save();
 
     // Send verification email
-    const verifyUrl = `https://custom-gpt-backend-sigma.vercel.app/verify-email?token=${verificationToken}`;
+    const verifyUrl = `https://custom-gpt-builder-frontend.vercel.app/verify-email?token=${verificationToken}`;
     await transporter.sendMail({
       to: email,
       subject: 'Verify Your Email',
@@ -195,7 +195,7 @@ router.get('/verify-email', async (req, res) => {
     await user.save();
 
     // Redirect to login page or send a success response
-    res.redirect('https://custom-gpt-backend-sigma.vercel.app/login?verified=true'); // Update with your frontend URL
+    res.redirect('https://custom-gpt-builder-frontend.vercel.app/login?verified=true'); // Update with your frontend URL
   } catch (error) {
     console.error('Email verification error:', error);
     res.status(500).json({ message: 'Internal server error', error: error.message });

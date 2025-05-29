@@ -67,26 +67,11 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 // Login Route
-router.post('/login', async (req, res) => {
+// Login
+// routes/auth.js (update the /login route)
+router.post('/login', validateLogin, async (req, res) => {
   try {
-    const { email, password, recaptchaToken } = req.body;
-
-    // Verify reCAPTCHA token
-    const recaptchaResponse = await axios.post(
-      'https://www.google.com/recaptcha/api/siteverify',
-      null,
-      {
-        params: {
-          secret: process.env.RECAPTCHA_SECRET_KEY,
-          response: recaptchaToken,
-        },
-      }
-    );
-
-    const { success, score } = recaptchaResponse.data;
-    if (!success || score < 0.5) {
-      return res.status(400).json({ message: 'reCAPTCHA verification failed' });
-    }
+    const { email, password } = req.body;
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -127,7 +112,6 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 });
-// Resend Verification Email
 router.post('/resend-verification', async (req, res) => {
   const { email } = req.body;
   try {

@@ -7,6 +7,7 @@ const { sendVerificationEmail } = require('../utils/sendEmail'); // Import email
 
 
 
+
 const router = express.Router();
 
 const nodemailer = require('nodemailer');

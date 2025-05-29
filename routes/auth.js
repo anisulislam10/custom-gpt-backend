@@ -70,7 +70,7 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     // Send reset email
-    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
+    const resetUrl = `https://custom-gpt-builder-frontend.vercel.app/reset-password?token=${resetToken}`;
     await transporter.sendMail({
       to: email,
       subject: 'Password Reset Request',

@@ -40,25 +40,8 @@ const transporter = nodemailer.createTransport({
 
 // Forgot Password
 router.post('/forgot-password', async (req, res) => {
-  const { email, recaptchaToken } = req.body;
+  const { email } = req.body;
   try {
-    // Verify reCAPTCHA token
-    const recaptchaResponse = await axios.post(
-      'https://www.google.com/recaptcha/api/siteverify',
-      null,
-      {
-        params: {
-          secret: process.env.RECAPTCHA_SECRET_KEY,
-          response: recaptchaToken,
-        },
-      }
-    );
-
-    const { success, score } = recaptchaResponse.data;
-    if (!success || score < 0.5) {
-      return res.status(400).json({ message: 'reCAPTCHA verification failed' });
-    }
-
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: 'Email not found' });
@@ -80,11 +63,9 @@ router.post('/forgot-password', async (req, res) => {
 
     res.json({ message: 'Password reset email sent' });
   } catch (error) {
-    console.error('Forgot password error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
-
 // Login Route
 router.post('/login', async (req, res) => {
   try {

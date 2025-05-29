@@ -306,7 +306,7 @@ router.get('/script.js', async (req, res) => {
                   font-size: 14px;
                 ">
                   <div class="loading-spinner" style="
-                    display: flex;
+                    display: pxpx;
                     justify-content: center;
                     align-items: center;
                     gap: 8px;
@@ -428,7 +428,7 @@ router.get('/script.js', async (req, res) => {
           toggleIcon.addEventListener('click', () => {
             const isHidden = chatbotWrapper.style.display === 'none' || !chatbotWrapper.style.display;
             chatbotWrapper.style.display = isHidden ? 'flex' : 'none';
-            toggleIcon.style.display = isHidden ? 'none' : 'flex'; // Hide toggle when chatbot opens, show when closes
+            toggleIcon.style.display = isHidden ? 'none' : 'flex';
             if (isHidden) {
               chatbotWrapper.style.opacity = '0';
               chatbotWrapper.style.transform = 'translateY(20px)';
@@ -474,7 +474,7 @@ router.get('/script.js', async (req, res) => {
           const closeChat = container.querySelector('#close-chat');
           closeChat.addEventListener('click', () => {
             chatbotWrapper.style.display = 'none';
-            toggleIcon.style.display = 'flex'; // Show toggle icon when closing chatbot
+            toggleIcon.style.display = 'flex';
           });
           closeChat.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -553,7 +553,7 @@ router.get('/script.js', async (req, res) => {
 
               const autoAdvanceTextNodes = () => {
                 let current = nodes.find((n) => n.id === currentNodeId);
-                while (current && current.type === 'text') {
+                while (current && current.type === 'text' && !chatHistory.find((h) => h.node.id === current.id && h.userInput)) {
                   const nextEdge = edges.find((edge) => edge.source === current.id);
                   if (!nextEdge) break;
                   const nextNode = nodes.find((n) => n.id === nextEdge.target);
@@ -562,6 +562,7 @@ router.get('/script.js', async (req, res) => {
                   chatHistory.push({ node: nextNode, userInput: null });
                   current = nextNode;
                 }
+                requestAnimationFrame(renderChat);
               };
 
               const renderChat = () => {
@@ -580,6 +581,8 @@ router.get('/script.js', async (req, res) => {
                     const { node, userInput } = entry;
                     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     let html = '';
+
+                    // Render bot message
                     if (node.type === 'text') {
                       html += \`
                         <div class="message bot-message" style="
@@ -593,7 +596,7 @@ router.get('/script.js', async (req, res) => {
                           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
                           animation: slide-in 0.3s ease;
                         ">
-                          <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label}</p>
+                          <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'No message'}</p>
                           <span style="
                             font-size: 12px;
                             color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
@@ -603,7 +606,7 @@ router.get('/script.js', async (req, res) => {
                           ">\${timestamp}</span>
                         </div>
                       \`;
-                    } else if (node.type === 'custom' && node.id === currentNodeId) {
+                    } else if (node.type === 'custom' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
                       html += \`
                         <div class="message bot-message" style="
                           background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
@@ -616,106 +619,36 @@ router.get('/script.js', async (req, res) => {
                           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
                           animation: slide-in 0.3s ease;
                         ">
-                          <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label}</p>
-                          <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
-                            \${node.data.options
-                              .map(
-                                (opt, i) => \`
-                                  <button
-                                    data-option-index="\${i}"
-                                    style="
-                                      background: \${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'};
-                                      backdrop-filter: blur(5px);
-                                      color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                                      padding: 10px 20px;
-                                      border-radius: 8px;
-                                      border: none;
-                                      cursor: pointer;
-                                      font-size: 14px;
-                                      font-weight: 500;
-                                      transition: background 0.2s;
-                                    "
-                                    onmouseover="this.style.background='\${isDarkMode ? 'rgba(107, 114, 128, 0.9)' : 'rgba(209, 213, 219, 0.9)'}'"
-                                    onmouseout="this.style.background='\${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'}'"
-                                  >
-                                    \${opt}
-                                  </button>
-                                \`
-                              )
-                              .join('')}
-                          </div>
-                          <span style="
-                            font-size: 12px;
-                            color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
-                            opacity: 0.6;
-                            margin-top: 8px;
-                            display: block;
-                          ">\${timestamp}</span>
-                        </div>
-                      \`;
-                    } else if (node.type === 'form' && node.id === currentNodeId) {
-                      html += \`
-                        <div class="message bot-message" style="
-                          background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-                          backdrop-filter: blur(5px);
-                          color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                          padding: 12px 16px;
-                          border-radius: 12px 12px 12px 4px;
-                          max-width: 75%;
-                          align-self: flex-start;
-                          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                          animation: slide-in 0.3s ease;
-                        ">
-                          <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label}</p>
-                          <form id="chatbot-form-\${node.id}" style="margin-top: 12px;">
-                            \${node.data.fields
-                              .map(
-                                (field) => \`
-                                  <div style="margin-bottom: 10px;">
-                                    <input
-                                      name="\${field.key || field.label}"
-                                      type="\${field.type}"
-                                      placeholder="\${field.label}"
+                          <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'Please select an option'}</p>
+                          \${userInput ? '' : \`
+                            <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                              \${node.data.options
+                                .map(
+                                  (opt, i) => \`
+                                    <button
+                                      data-option-index="\${i}"
                                       style="
-                                        width: 100%;
-                                        padding: 10px 12px;
-                                        border: 1px solid \${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'};
-                                        border-radius: 8px;
-                                        background: \${isDarkMode ? 'rgba(75, 85, 99, 0.7)' : 'rgba(255, 255, 255, 0.7)'};
+                                        background: \${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'};
                                         backdrop-filter: blur(5px);
                                         color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                                        padding: 10px 20px;
+                                        border-radius: 8px;
+                                        border: none;
+                                        cursor: pointer;
                                         font-size: 14px;
-                                        transition: border-color 0.2s, box-shadow 0.2s;
+                                        font-weight: 500;
+                                        transition: background 0.2s;
                                       "
-                                      onfocus="this.style.borderColor='\${config.theme?.primary || '#6366f1'}'; this.style.boxShadow='0 0 0 3px rgba(99, 102, 241, 0.1)'"
-                                      onblur="this.style.borderColor='\${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'}'; this.style.boxShadow='none'"
-                                      \${field.required ? 'required' : ''}
-                                      aria-label="\${field.label}"
-                                    />
-                                  </div>
-                                \`
-                              )
-                              .join('')}
-                            <button
-                              type="submit"
-                              style="
-                                background: \${config.theme?.primary || '#6366f1'};
-                                color: #ffffff;
-                                padding: 10px 20px;
-                                border-radius: 8px;
-                                border: none;
-                                cursor: pointer;
-                                font-size: 14px;
-                                font-weight: 500;
-                                width: 100%;
-                                transition: background 0.2s;
-                              "
-                              onmouseover="this.style.background='\${config.theme?.secondary || '#4f46e5'}'"
-                              onmouseout="this.style.background='\${config.theme?.primary || '#6366f1'}'"
-                            >
-                              Submit
-                            </button>
-                          </form>
+                                      onmouseover="this.style.background='\${isDarkMode ? 'rgba(107, 114, 128, 0.9)' : 'rgba(209, 213, 219, 0.9)'}'"
+                                      onmouseout="this.style.background='\${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'}'"
+                                    >
+                                      \${opt}
+                                    </button>
+                                  \`
+                                )
+                                .join('')}
+                            </div>
+                          \`}
                           <span style="
                             font-size: 12px;
                             color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
@@ -725,7 +658,81 @@ router.get('/script.js', async (req, res) => {
                           ">\${timestamp}</span>
                         </div>
                       \`;
-                    } else if ((node.type === 'singleInput' || node.type === 'aiinput') && node.id === currentNodeId) {
+                    } else if (node.type === 'form' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
+                      html += \`
+                        <div class="message bot-message" style="
+                          background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+                          backdrop-filter: blur(5px);
+                          color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                          padding: 12px 16px;
+                          border-radius: 12px 12px 12px 4px;
+                          max-width: 75%;
+                          align-self: flex-start;
+                          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                          animation: slide-in 0.3s ease;
+                        ">
+                          <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'Please fill out the form'}</p>
+                          \${userInput ? '' : \`
+                            <form id="chatbot-form-\${node.id}" style="margin-top: 12px;">
+                              \${node.data.fields
+                                .map(
+                                  (field) => \`
+                                    <div style="margin-bottom: 10px;">
+                                      <input
+                                        name="\${field.key || field.label}"
+                                        type="\${field.type}"
+                                        placeholder="\${field.label}"
+                                        style="
+                                          width: 100%;
+                                          padding: 10px 12px;
+                                          border: 1px solid \${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'};
+                                          border-radius: 8px;
+                                          background: \${isDarkMode ? 'rgba(75, 85, 99, 0.7)' : 'rgba(255, 255, 255, 0.7)'};
+                                          backdrop-filter: blur(5px);
+                                          color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                                          font-size: 14px;
+                                          transition: border-color 0.2s, box-shadow 0.2s;
+                                        "
+                                        onfocus="this.style.borderColor='\${config.theme?.primary || '#6366f1'}'; this.style.boxShadow='0 0 0 3px rgba(99, 102, 241, 0.1)'"
+                                        onblur="this.style.borderColor='\${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'}'; this.style.boxShadow='none'"
+                                        \${field.required ? 'required' : ''}
+                                        aria-label="\${field.label}"
+                                      />
+                                    </div>
+                                  \`
+                                )
+                                .join('')}
+                              <button
+                                type="submit"
+                                style="
+                                  background: \${config.theme?.primary || '#6366f1'};
+                                  color: #ffffff;
+                                  padding: 10px 20px;
+                                  border-radius: 8px;
+                                  border: none;
+                                  cursor: pointer;
+                                  font-size: 14px;
+                                  font-weight: 500;
+                                  width: 100%;
+                                  transition: background 0.2s;
+                                "
+                                onmouseover="this.style.background='\${config.theme?.secondary || '#4f46e5'}'"
+                                onmouseout="this.style.background='\${config.theme?.primary || '#6366f1'}'"
+                              >
+                                Submit
+                              </button>
+                            </form>
+                          \`}
+                          <span style="
+                            font-size: 12px;
+                            color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+                            opacity: 0.6;
+                            margin-top: 8px;
+                            display: block;
+                          ">\${timestamp}</span>
+                        </div>
+                      \`;
+                    } else if ((node.type === 'singleInput' || node.type === 'aiinput') && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
                       html += \`
                         <div class="message bot-message" style="
                           background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
@@ -749,6 +756,8 @@ router.get('/script.js', async (req, res) => {
                         </div>
                       \`;
                     }
+
+                    // Render user input
                     if (userInput) {
                       html += \`
                         <div class="message user-message" style="
@@ -776,6 +785,7 @@ router.get('/script.js', async (req, res) => {
                         </div>
                       \`;
                     }
+
                     return html;
                   })
                   .join('');
@@ -867,6 +877,19 @@ router.get('/script.js', async (req, res) => {
               const handleInteraction = (nodeId, userInput, optionIndex = null) => {
                 console.log('[Chatbot] Interaction:', { nodeId, userInput, optionIndex });
                 const currentNode = nodes.find((n) => n.id === nodeId);
+
+                // Add user input to chat history for the current node
+                const currentHistoryEntry = chatHistory.find((h) => h.node.id === nodeId && !h.userInput);
+                if (currentHistoryEntry) {
+                  currentHistoryEntry.userInput = userInput;
+                } else {
+                  chatHistory.push({ node: currentNode, userInput });
+                }
+
+                // Render chat to show user input immediately
+                requestAnimationFrame(renderChat);
+
+                // Find next node
                 let nextEdge = null;
                 if (currentNode.type === 'custom' && optionIndex !== null) {
                   const sourceHandle = \`option-\${optionIndex}\`;
@@ -879,11 +902,10 @@ router.get('/script.js', async (req, res) => {
                   const nextNode = nodes.find((n) => n.id === nextEdge.target);
                   if (nextNode) {
                     currentNodeId = nextNode.id;
-                    chatHistory.push({ node: nextNode, userInput });
+                    chatHistory.push({ node: nextNode, userInput: null });
                     setTimeout(() => {
                       isTyping = false;
                       autoAdvanceTextNodes();
-                      requestAnimationFrame(renderChat);
                     }, 300);
                   } else {
                     console.error('[Chatbot] Error: Next node not found for edge:', nextEdge);
@@ -898,7 +920,6 @@ router.get('/script.js', async (req, res) => {
               };
 
               autoAdvanceTextNodes();
-              requestAnimationFrame(renderChat);
             })
             .catch((error) => {
               console.error('[Chatbot] Failed to load chatbot:', error);

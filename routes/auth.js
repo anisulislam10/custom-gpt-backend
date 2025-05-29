@@ -39,8 +39,25 @@ const transporter = nodemailer.createTransport({
 
 // Forgot Password
 router.post('/forgot-password', async (req, res) => {
-  const { email } = req.body;
+  const { email, recaptchaToken } = req.body;
   try {
+    // Verify reCAPTCHA token
+    const recaptchaResponse = await axios.post(
+      'https://www.google.com/recaptcha/api/siteverify',
+      null,
+      {
+        params: {
+          secret: process.env.RECAPTCHA_SECRET_KEY,
+          response: recaptchaToken,
+        },
+      }
+    );
+
+    const { success, score } = recaptchaResponse.data;
+    if (!success || score < 0.5) {
+      return res.status(400).json({ message: 'reCAPTCHA verification failed' });
+    }
+
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: 'Email not found' });
@@ -53,7 +70,7 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     // Send reset email
-    const resetUrl = `https://custom-gpt-builder-frontend.vercel.app/reset-password?token=${resetToken}`;
+    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
     await transporter.sendMail({
       to: email,
       subject: 'Password Reset Request',
@@ -62,30 +79,70 @@ router.post('/forgot-password', async (req, res) => {
 
     res.json({ message: 'Password reset email sent' });
   } catch (error) {
+    console.error('Forgot password error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
-// server/routes/auth.js
-router.post('/reset-password', async (req, res) => {
-  const { token, password } = req.body;
+
+// Login Route
+router.post('/login', async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findOne({
-      resetToken: token,
-      resetTokenExpires: { $gt: Date.now() },
-    });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired token' });
+    const { email, password, recaptchaToken } = req.body;
+
+    // Verify reCAPTCHA token
+    const recaptchaResponse = await axios.post(
+      'https://www.google.com/recaptcha/api/siteverify',
+      null,
+      {
+        params: {
+          secret: process.env.RECAPTCHA_SECRET_KEY,
+          response: recaptchaToken,
+        },
+      }
+    );
+
+    const { success, score } = recaptchaResponse.data;
+    if (!success || score < 0.5) {
+      return res.status(400).json({ message: 'reCAPTCHA verification failed' });
     }
 
-    user.password = await bcrypt.hash(password, 10);
-    user.resetToken = null;
-    user.resetTokenExpires = null;
-    await user.save();
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
 
-    res.json({ message: 'Password reset successful' });
+    if (!user.isVerified) {
+      return res.status(403).json({ message: 'Please verify your email before logging in' });
+    }
+
+    if (!user.active) {
+      return res.status(403).json({ message: 'Account is deactivated' });
+    }
+
+    if (user.provider === 'local' && password) {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Invalid email or password' });
+      }
+    } else if (user.provider !== 'local') {
+      return res.status(400).json({ message: 'Use social login for this account' });
+    }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        active: user.active,
+        isVerified: user.isVerified,
+      },
+    });
   } catch (error) {
-    res.status(400).json({ message: 'Invalid or expired token' });
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 });
 // Resend Verification Email
@@ -204,80 +261,80 @@ router.get('/verify-email', async (req, res) => {
 
 // Login
 // routes/auth.js (update the /login route)
-router.post('/login', validateLogin, async (req, res) => {
-  try {
-    const { email, password } = req.body;
+// router.post('/login', validateLogin, async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
-    }
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(400).json({ message: 'Invalid email or password' });
+//     }
 
-    if (!user.isVerified) {
-      return res.status(403).json({ message: 'Please verify your email before logging in' });
-    }
+//     if (!user.isVerified) {
+//       return res.status(403).json({ message: 'Please verify your email before logging in' });
+//     }
 
-    if (!user.active) {
-      return res.status(403).json({ message: 'Account is deactivated' });
-    }
+//     if (!user.active) {
+//       return res.status(403).json({ message: 'Account is deactivated' });
+//     }
 
-    if (user.provider === 'local' && password) {
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Invalid email or password' });
-      }
-    } else if (user.provider !== 'local') {
-      return res.status(400).json({ message: 'Use social login for this account' });
-    }
+//     if (user.provider === 'local' && password) {
+//       const isMatch = await bcrypt.compare(password, user.password);
+//       if (!isMatch) {
+//         return res.status(400).json({ message: 'Invalid email or password' });
+//       }
+//     } else if (user.provider !== 'local') {
+//       return res.status(400).json({ message: 'Use social login for this account' });
+//     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        active: user.active,
-        isVerified: user.isVerified,
-      },
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-});
-// routes/auth.js
-router.post('/resend-verification', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
-    }
+//     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
+//     res.json({
+//       token,
+//       user: {
+//         id: user._id,
+//         name: user.name,
+//         email: user.email,
+//         role: user.role,
+//         active: user.active,
+//         isVerified: user.isVerified,
+//       },
+//     });
+//   } catch (error) {
+//     console.error('Login error:', error);
+//     res.status(500).json({ message: 'Internal server error', error: error.message });
+//   }
+// });
+// // routes/auth.js
+// router.post('/resend-verification', async (req, res) => {
+//   try {
+//     const { email } = req.body;
+//     if (!email) {
+//       return res.status(400).json({ message: 'Email is required' });
+//     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
 
-    if (user.isVerified) {
-      return res.status(400).json({ message: 'Email is already verified' });
-    }
+//     if (user.isVerified) {
+//       return res.status(400).json({ message: 'Email is already verified' });
+//     }
 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const tokenExpiration = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+//     const verificationToken = crypto.randomBytes(32).toString('hex');
+//     const tokenExpiration = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
-    user.verificationToken = verificationToken;
-    user.verificationTokenExpires = tokenExpiration;
-    await user.save();
+//     user.verificationToken = verificationToken;
+//     user.verificationTokenExpires = tokenExpiration;
+//     await user.save();
 
-    await sendVerificationEmail(user.email, user.name, verificationToken);
-    res.json({ message: 'Verification email resent successfully' });
-  } catch (error) {
-    console.error('Resend verification error:', error);
-    res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-});
+//     await sendVerificationEmail(user.email, user.name, verificationToken);
+//     res.json({ message: 'Verification email resent successfully' });
+//   } catch (error) {
+//     console.error('Resend verification error:', error);
+//     res.status(500).json({ message: 'Internal server error', error: error.message });
+//   }
+// });
 // Get all users (admin only)
 router.get(
   '/users',

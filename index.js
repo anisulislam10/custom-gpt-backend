@@ -54,9 +54,9 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       frameAncestors: ["*"], // Allow all network schemes
-      scriptSrc: ["'self'", "https://custom-gpt-backend-sigma.vercel.app"],
+      scriptSrc: ["'self'", "http://localhost:5000"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'", "https://custom-gpt-backend-sigma.vercel.app"],
+      connectSrc: ["'self'", "http://localhost:5000"],
     },
   },
 }));
@@ -66,12 +66,15 @@ app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
       process.env.FRONTEND_URL,
-      "https://custom-gpt-builder-frontend.vercel.app",
-      "https://admin-customchatbot-app.vercel.app",
-      "https://custom-gpt-backend-sigma.vercel.app",
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:5000",
       "http://localhost",
       "http://localhost:8000",
-      "*",
+        "https://custom-gpt-backend-sigma.vercel.app",
+
+      "https://accounts.google.com", // Allow Google's OAuth domain for redirects
+
     ];
     console.log(`CORS Origin: ${origin}`);
     if (!origin || allowedOrigins.includes(origin)) {

@@ -72,6 +72,7 @@ app.use(cors({
       "http://localhost",
       "http://localhost:8000",
         "https://custom-gpt-backend-sigma.vercel.app",
+        "https://admin-customchatbot-app.vercel.app",
 
       "https://accounts.google.com", // Allow Google's OAuth domain for redirects
 

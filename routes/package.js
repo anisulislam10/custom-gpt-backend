@@ -131,7 +131,7 @@ router.get('/getpackage', async (req, res) => {
         packageId,
         userId,
       },
-      customer_creation: 'always',
+      // customer_creation: 'always',
     });
 
     console.log('Checkout session created:', {

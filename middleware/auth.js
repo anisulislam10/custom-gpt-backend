@@ -38,42 +38,43 @@ const adminMiddleware = async (req, res, next) => {
   }
 };
 
-// Validate signup/register data
+
 const validateSignup = [
-  body('email').isEmail().withMessage('Invalid email format'),
-  body('password')
+  body("email").isEmail().withMessage("Invalid email address"),
+  body("password")
+    .optional()
     .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters'),
-  body('name').trim().notEmpty().withMessage('Name is required'),
-  body('role')
+    .withMessage("Password must be at least 6 characters"),
+  body("name").optional().notEmpty().withMessage("Name cannot be empty"),
+  body("googleId").optional().notEmpty().withMessage("Google ID cannot be empty"),
+  body("provider")
     .optional()
-    .isIn(['user', 'admin'])
-    .withMessage('Invalid role'),
-  body('googleId').optional().isString().withMessage('Invalid Google ID'),
-  body('image').optional().isURL().withMessage('Invalid image URL'),
-  body('provider')
-    .optional()
-    .isIn(['local', 'google'])
-    .withMessage('Invalid provider'),
-  body('active').optional().isBoolean().withMessage('Active must be a boolean'),
+    .isIn(["local", "google"])
+    .withMessage("Invalid provider"),
+  body("image").optional().isURL().withMessage("Image must be a valid URL"),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ message: 'Validation failed', errors: errors.array() });
+      console.error("Validation errors in signup:", errors.array());
+      return res.status(400).json({ message: "Validation failed", errors: errors.array() });
     }
+    console.log("Validation passed for signup:", req.body);
     next();
   },
 ];
 
-// Validate login data
+
 const validateLogin = [
-  body('email').isEmail().withMessage('Invalid email format'),
-  body('password').notEmpty().withMessage('Password is required'),
+  body("email").isEmail().withMessage("Invalid email address"),
+  body("password").notEmpty().withMessage("Password is required"),
+  body("recaptchaToken").notEmpty().withMessage("reCAPTCHA token is required"),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ message: 'Validation failed', errors: errors.array() });
+      console.error("Validation errors in login:", errors.array());
+      return res.status(400).json({ message: "Validation failed", errors: errors.array() });
     }
+    console.log("Validation passed for login:", req.body);
     next();
   },
 ];

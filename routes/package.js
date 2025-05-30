@@ -274,8 +274,8 @@ router.get('/getpackage', async (req, res) => {
         },
       ],
       mode: pkg.billingPeriod === 'month' || pkg.billingPeriod === 'year' ? 'subscription' : 'payment',
-      success_url: `http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `http://localhost:3000/cancel`,
+      success_url: `https://custom-gpt-builder-frontend.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://custom-gpt-builder-frontend.vercel.app//cancel`,
       metadata: {
         packageId,
         userId,
@@ -408,7 +408,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (reques
   response.status(200).json({ received: true });
 });
 
-  router.put('/updatepackages/:id', async (req, res) => {
+
+router.put('/updatepackages/:id', async (req, res) => {
     try {
       const { id } = req.params;
       const updateData = req.body;

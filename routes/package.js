@@ -103,55 +103,167 @@ router.get('/getpackage', async (req, res) => {
       res.status(400).json({ error: 'Failed to create package' });
     }
   });
-  
-  // Create Checkout Session
   router.post('/stripe/create-checkout-session', async (req, res) => {
-    try {
-      const { packageId, userId } = req.body; // Assume userId is sent from frontend (requires authentication)
-  
-      if (!userId) {
-        return res.status(401).json({ error: 'User authentication required' });
+  try {
+    const { packageId, userId } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    const pkg = await Package.findOne({ packageId });
+    if (!pkg) {
+      return res.status(404).json({ error: 'Package not found' });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: pkg.stripePriceId,
+          quantity: 1,
+        },
+      ],
+      mode: pkg.billingPeriod === 'month' || pkg.billingPeriod === 'year' ? 'subscription' : 'payment',
+      success_url: `https://custom-gpt-builder-frontend.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://custom-gpt-builder-frontend.vercel.app/cancel`,
+      metadata: {
+        packageId,
+        userId,
+      },
+      customer_creation: 'always',
+    });
+
+    console.log('Checkout session created:', {
+      sessionId: session.id,
+      payment_status: session.payment_status,
+      packageId,
+      userId,
+    });
+
+    res.json({ sessionId: session.id });
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+
+router.post('/stripe/verify-checkout-session', async (req, res) => {
+  try {
+    const { sessionId, userId } = req.body;
+
+    if (!sessionId || !userId) {
+      return res.status(400).json({ error: 'sessionId and userId are required' });
+    }
+
+    // Retrieve the checkout session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (session.payment_status === 'paid' && session.status === 'complete') {
+      const { packageId, userId: sessionUserId } = session.metadata;
+
+      // Verify userId matches
+      if (sessionUserId !== userId) {
+        return res.status(403).json({ error: 'User ID mismatch' });
       }
-  
+
+      // Fetch package details
       const pkg = await Package.findOne({ packageId });
       if (!pkg) {
         return res.status(404).json({ error: 'Package not found' });
       }
-  
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: pkg.stripePriceId,
-            quantity: 1,
-          },
-        ],
-        mode: pkg.billingPeriod === 'month' || pkg.billingPeriod === 'year' ? 'subscription' : 'payment',
-        success_url: `https://custom-gpt-builder-frontend.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `https://custom-gpt-builder-frontend.vercel.app/cancel`,
-        metadata: {
-          packageId,
-          userId,
-        },
-      });
-  
-      // Save pending transaction
+
+      // Check if transaction already exists to avoid duplicates
+      const existingTransaction = await Transaction.findOne({ stripeSessionId: sessionId });
+      if (existingTransaction) {
+        console.log('Transaction already exists:', sessionId);
+        return res.json({ success: true, message: 'Transaction already processed' });
+      }
+
+      // Save transaction
       const transaction = new Transaction({
         userId,
         packageId,
-        stripeSessionId: session.id,
+        stripeSessionId: sessionId,
         amount: pkg.price,
-        currency: pkg.currency,
-        status: 'pending',
+        currency: pkg.currency || 'usd',
+        status: 'completed',
       });
       await transaction.save();
-  
-      res.json({ sessionId: session.id });
-    } catch (error) {
-      console.error('Error creating checkout session:', error);
-      res.status(500).json({ error: 'Failed to create checkout session' });
+
+      console.log('Transaction saved:', {
+        userId,
+        packageId,
+        stripeSessionId: sessionId,
+        amount: pkg.price,
+      });
+
+      // Optionally update user subscription (if you have a User or Subscription model)
+      // await User.updateOne({ _id: userId }, { subscription: { packageId, status: 'active' } });
+
+      res.json({ success: true, message: 'Payment verified and transaction saved' });
+    } else {
+      console.log('Payment not completed:', {
+        sessionId,
+        payment_status: session.payment_status,
+        status: session.status,
+      });
+      res.status(400).json({ error: 'Payment not completed' });
     }
-  });
+  } catch (error) {
+    console.error('Error verifying checkout session:', error);
+    res.status(500).json({ error: 'Failed to verify checkout session' });
+  }
+});
+  // Create Checkout Session
+  // router.post('/stripe/create-checkout-session', async (req, res) => {
+  //   try {
+  //     const { packageId, userId } = req.body; // Assume userId is sent from frontend (requires authentication)
+  
+  //     if (!userId) {
+  //       return res.status(401).json({ error: 'User authentication required' });
+  //     }
+  
+  //     const pkg = await Package.findOne({ packageId });
+  //     if (!pkg) {
+  //       return res.status(404).json({ error: 'Package not found' });
+  //     }
+  
+  //     const session = await stripe.checkout.sessions.create({
+  //       payment_method_types: ['card'],
+  //       line_items: [
+  //         {
+  //           price: pkg.stripePriceId,
+  //           quantity: 1,
+  //         },
+  //       ],
+  //       mode: pkg.billingPeriod === 'month' || pkg.billingPeriod === 'year' ? 'subscription' : 'payment',
+  //       success_url: `https://custom-gpt-builder-frontend.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
+  //       cancel_url: `https://custom-gpt-builder-frontend.vercel.app/cancel`,
+  //       metadata: {
+  //         packageId,
+  //         userId,
+  //       },
+  //     });
+  
+  //     // Save pending transaction
+  //     const transaction = new Transaction({
+  //       userId,
+  //       packageId,
+  //       stripeSessionId: session.id,
+  //       amount: pkg.price,
+  //       currency: pkg.currency,
+  //       status: 'pending',
+  //     });
+  //     await transaction.save();
+  
+  //     res.json({ sessionId: session.id });
+  //   } catch (error) {
+  //     console.error('Error creating checkout session:', error);
+  //     res.status(500).json({ error: 'Failed to create checkout session' });
+  //   }
+  // });
  // routes/package.js
 // routes/package.js
 router.post(

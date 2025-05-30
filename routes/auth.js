@@ -78,7 +78,7 @@ router.post('/register', async (req, res) => {
     const { email, password, name, role, googleId, image, provider } = req.body;
 
     
-    
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'Email already exists' });
@@ -162,7 +162,7 @@ router.get('/verify-email', async (req, res) => {
 
 // Login
 // routes/auth.js (update the /login route)
-router.post('/login', validateLogin, async (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 

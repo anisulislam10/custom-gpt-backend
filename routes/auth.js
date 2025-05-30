@@ -69,7 +69,7 @@ router.post('/forgot-password', async (req, res) => {
 // Login Route
 // Login
 // routes/auth.js (update the /login route)
-router.post('/register', validateSignup, async (req, res) => {
+router.post('/register', async (req, res) => {
       console.log("Register request body:");
 
     console.log("Register request body:", req.body);

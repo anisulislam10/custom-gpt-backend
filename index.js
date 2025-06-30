@@ -53,10 +53,21 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      frameAncestors: ["*"], // Allow all network schemes
+      frameAncestors: ["*"],
       scriptSrc: ["'self'", "http://localhost:5000"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'", "http://localhost:5000"],
+      connectSrc: [
+        "'self'",
+        "http://localhost:5000",
+        "http://localhost:3000",
+        "http://165.227.120.144",
+        "http://localhost:3001",
+        "http://localhost:8000",
+        "https://custom-gpt-backend-sigma.vercel.app",
+        "https://admin-customchatbot-app.vercel.app",
+        "https://custom-gpt-builder-frontend.vercel.app",
+        "https://accounts.google.com",
+      ].filter(Boolean),
     },
   },
 }));
@@ -75,14 +86,13 @@ app.use(cors({
       "https://custom-gpt-backend-sigma.vercel.app",
       "https://admin-customchatbot-app.vercel.app",
       "https://custom-gpt-builder-frontend.vercel.app",
-      "https://accounts.google.com", // Allow Google's OAuth domain for redirects
-
-    ];
-    console.log(`CORS Origin: ${origin}`);
+      "https://accounts.google.com",
+    ].filter(Boolean); // Remove undefined values (e.g., if process.env.FRONTEND_URL is not set)
+    console.log(`CORS Origin: ${origin}, URL: ${req.originalUrl}, Method: ${req.method}`);
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.error(`CORS blocked: ${origin} not allowed`);
+      console.error(`CORS blocked: ${origin} not allowed for URL: ${req.originalUrl}`);
       callback(new Error('Not allowed by CORS'));
     }
   },

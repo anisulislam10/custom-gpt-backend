@@ -2,81 +2,17 @@
 const express = require('express');
 const router = express.Router();
 const Flow = require('../models/Flow');
+const Interaction = require('../models/Interaction');
+const FormResponse = require('../models/FormResponse');
 
-// router.get('/:flowId/:userId', async (req, res) => {
-//   console.log(`[Chatbot] Serving chatbot for flowId: ${req.params.flowId}, userId: ${req.params.userId}, domain: ${req.query.domain || 'not provided'}`);
-  
-//   try {
-//     const { flowId, userId } = req.params;
-//     const { domain } = req.query;
-//     const origin = req.get('Origin') || '';
-
-//     // Validate input parameters
-//     if (!flowId || !userId || !domain) {
-//       console.error(`[Chatbot] Missing parameters - flowId: ${flowId}, userId: ${userId}, domain: ${domain}`);
-//       return res.status(400).json({ message: 'Missing flowId, userId, or domain' });
-//     }
-
-//     // Find the flow
-//     const flow = await Flow.findOne({
-//       _id: flowId,
-//       userId,
-//     });
-
-//     // Check if flow exists
-//     if (!flow) {
-//       console.error(`[Chatbot] Flow not found for flowId: ${flowId}, userId: ${userId}`);
-//       return res.status(404).json({ message: 'Flow not found' });
-//     }
-
-//     // Normalize and validate website domain
-//     const normalizedDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-//     if (flow.websiteDomain !== normalizedDomain) {
-//       console.error(`[Chatbot] Domain mismatch - expected: ${flow.websiteDomain}, received: ${normalizedDomain}`);
-//       return res.status(403).json({ message: 'Invalid or unauthorized domain' });
-//     }
-
-//     // Validate request origin (optional, for additional security)
-//     const normalizedOrigin = origin.replace(/^https?:\/\//, '').replace(/\/$/, '');
-//     if (origin && normalizedOrigin !== flow.websiteDomain) {
-//       console.error(`[Chatbot] Origin mismatch - expected: ${flow.websiteDomain}, received: ${normalizedOrigin}`);
-//       return res.status(403).json({ message: 'Invalid request origin' });
-//     }
-
-//     // Serve chatbot data
-  
-//     res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://custom-gpt-backend-sigma.vercel.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://custom-gpt-backend-sigma.vercel.app");
-
-//     res.send(`
-//       <!DOCTYPE html>
-//       <html>
-//       <head>
-//         <title>Chatbot</title>
-//         <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-//         <script src="/api/chatbot/script.js"></script>
-//         <script src="/api/chatbot/config.js?flowId=${req.params.flowId}&userId=${req.params.userId}&primary=${encodeURIComponent(req.query.primary || '#6366f1')}&secondary=${encodeURIComponent(req.query.secondary || '#f59e0b')}&background=${encodeURIComponent(req.query.background || '#f8fafc')}&text=${encodeURIComponent(req.query.text || '#1f2937')}&name=${encodeURIComponent(req.query.name || 'Assistant')}&avatar=${encodeURIComponent(req.query.avatar || 'https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200')}"></script>
-//         <script src="/chatbot-init.js"></script>
-//       </head>
-//       <body>
-//         <div id="chatbot-container" style="width: 100%; height: 100%;"></div>
-//       </body>
-//       </html>
-//     `);
-//   } catch (error) {
-//     console.error('[Chatbot] Error in chatbot route:', error);
-//     res.status(500).json({ message: 'Failed to load chatbot', error: error.message });
-//   }
-// });
-
+// GET /:flowId/:userId - Serve the chatbot HTML
 router.get('/:flowId/:userId', async (req, res) => {
   console.log(`[Chatbot] Serving chatbot for flowId: ${req.params.flowId}, userId: ${req.params.userId}, domain: ${req.query.domain || 'not provided'}`);
-  
-  
+
   try {
     const { flowId, userId } = req.params;
-    const { domain, preview } = req.query;
-    const origin = req.get('Origin') || '';
-    const isPreview = preview === 'true'; // Check if preview mode is enabled
+    const { domain, preview, primary, secondary, background, text, name, avatar } = req.query;
+    const isPreview = preview === 'true';
 
     // Validate input parameters
     if (!flowId || !userId || (!isPreview && !domain)) {
@@ -85,58 +21,14 @@ router.get('/:flowId/:userId', async (req, res) => {
     }
 
     // Find the flow
-    const flow = await Flow.findOne({
-      _id: flowId,
-      userId,
-    });
-
-    // Check if flow exists
+    const flow = await Flow.findOne({ _id: flowId, userId });
     if (!flow) {
       console.error(`[Chatbot] Flow not found for flowId: ${flowId}, userId: ${userId}`);
       return res.status(404).json({ message: 'Flow not found' });
     }
 
-    // Normalize and validate website domain (skip in preview mode)
-if (!isPreview) {
-  const normalizedDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const normalizedStoredDomain = flow.websiteDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-
-  // Check if the provided domain matches the stored domain
-  if (normalizedDomain !== normalizedStoredDomain) {
-    console.error(`[Chatbot] Domain mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedDomain}`);
-    return res.status(403).json({ message: 'Invalid or unauthorized domain' });
-  }
-
-  // Validate request Origin (optional, for additional security)
-  const origin = req.get('Origin') || '';
-  if (origin) {
-    const normalizedOrigin = origin.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    if (normalizedOrigin !== normalizedStoredDomain) {
-      console.error(`[Chatbot] Origin mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedOrigin}`);
-      return res.status(403).json({ message: 'Invalid request origin' });
-    }
-  }
-
-  // Validate browser base URL via Referer header (optional, for additional security)
-  const referer = req.get('Referer') || '';
-  if (referer) {
-    // Extract the hostname from the Referer URL
-    try {
-      const refererUrl = new URL(referer);
-      const normalizedReferer = refererUrl.hostname.replace(/\/$/, '');
-      if (normalizedReferer !== normalizedStoredDomain) {
-        console.error(`[Chatbot] Referer mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedReferer}`);
-        return res.status(403).json({ message: 'Invalid request referer' });
-      }
-    } catch (error) {
-      console.error(`[Chatbot] Invalid Referer header: ${referer}, error: ${error.message}`);
-      return res.status(400).json({ message: 'Invalid Referer header' });
-    }
-  }
-}
-
-    // Serve chatbot data
-    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://custom-gpt-backend-sigma.vercel.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://custom-gpt-backend-sigma.vercel.app");
+    // Serve chatbot HTML
+    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' http://localhost:5000; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' http://localhost:5000");
 
     res.send(`
       <!DOCTYPE html>
@@ -145,7 +37,7 @@ if (!isPreview) {
         <title>Chatbot</title>
         <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
         <script src="/api/chatbot/script.js"></script>
-        <script src="/api/chatbot/config.js?flowId=${req.params.flowId}&userId=${req.params.userId}&primary=${encodeURIComponent(req.query.primary || '#6366f1')}&secondary=${encodeURIComponent(req.query.secondary || '#f59e0b')}&background=${encodeURIComponent(req.query.background || '#f8fafc')}&text=${encodeURIComponent(req.query.text || '#1f2937')}&name=${encodeURIComponent(req.query.name || 'Assistant')}&avatar=${encodeURIComponent(req.query.avatar || 'https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200')}"></script>
+        <script src="/api/chatbot/config.js?flowId=${flowId}&userId=${userId}&primary=${encodeURIComponent(primary || '#6366f1')}&secondary=${encodeURIComponent(secondary || '#f59e0b')}&background=${encodeURIComponent(background || '#f8fafc')}&text=${encodeURIComponent(text || '#1f2937')}&name=${encodeURIComponent(name || 'Assistant')}&avatar=${encodeURIComponent(avatar || 'https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200')}"></script>
         <script src="/chatbot-init.js"></script>
       </head>
       <body>
@@ -154,9 +46,12 @@ if (!isPreview) {
       </html>
     `);
   } catch (error) {
+    console.error('[Chatbot] Error loading chatbot:', error.message);
     res.status(500).json({ message: 'Failed to load chatbot', error: error.message });
   }
 });
+
+// GET /config.js - Serve configuration script
 router.get('/config.js', (req, res) => {
   console.log('[Chatbot] Serving config script');
   const { flowId, userId, primary, secondary, background, text, name, avatar } = req.query;
@@ -179,6 +74,8 @@ router.get('/config.js', (req, res) => {
   res.set('Content-Type', 'application/javascript');
   res.send(script);
 });
+
+// GET /script.js - Serve chatbot script
 router.get('/script.js', async (req, res) => {
   try {
     console.log('[Chatbot] Serving chatbot script');
@@ -211,7 +108,7 @@ router.get('/script.js', async (req, res) => {
             return;
           }
 
-          // Initialize chatbot UI with glassmorphism
+          // Initialize chatbot UI
           container.innerHTML = \`
             <div class="chatbot-wrapper" style="
               background: rgba(255, 255, 255, 0.9);
@@ -306,7 +203,7 @@ router.get('/script.js', async (req, res) => {
                   font-size: 14px;
                 ">
                   <div class="loading-spinner" style="
-                    display: pxpx;
+                    display: flex;
                     justify-content: center;
                     align-items: center;
                     gap: 8px;
@@ -377,7 +274,7 @@ router.get('/script.js', async (req, res) => {
                       align-items: center;
                       justify-content: center;
                       transition: background 0.2s, transform 0.2s;
-                      z-index: 1001; /* Ensure send button is above other elements */
+                      z-index: 1001;
                     "
                     onmouseover="this.style.background='\${config.theme?.secondary || '#4f46e5'}'"
                     onmouseout="this.style.background='\${config.theme?.primary || '#6366f1'}'"
@@ -521,8 +418,9 @@ router.get('/script.js', async (req, res) => {
           let currentNodeId = null;
           let chatHistory = [];
           let isTyping = false;
+          let flowName = '';
 
-          const fetchUrl = \`https://custom-gpt-backend-sigma.vercel.app/api/flow/\${config.userId}/\${config.flowId}\`;
+          const fetchUrl = \`http://localhost:5000/api/flow/\${config.userId}/\${config.flowId}\`;
           console.log('[Chatbot] Fetching flow from:', fetchUrl);
           fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
             .then((response) => {
@@ -537,7 +435,7 @@ router.get('/script.js', async (req, res) => {
               if (!flow.nodes || !flow.edges) {
                 throw new Error('Invalid flow data: nodes or edges missing');
               }
-
+              flowName = flow.name || 'Unnamed Flow'; // Store flow name for form submissions
               const { nodes, edges } = flow;
 
               const incomingEdges = edges.reduce((acc, edge) => {
@@ -551,19 +449,8 @@ router.get('/script.js', async (req, res) => {
               currentNodeId = startNode.id;
               chatHistory = [{ node: startNode, userInput: null }];
 
-              const autoAdvanceTextNodes = () => {
-                let current = nodes.find((n) => n.id === currentNodeId);
-                while (current && current.type === 'text' && !chatHistory.find((h) => h.node.id === current.id && h.userInput)) {
-                  const nextEdge = edges.find((edge) => edge.source === current.id);
-                  if (!nextEdge) break;
-                  const nextNode = nodes.find((n) => n.id === nextEdge.target);
-                  if (!nextNode) break;
-                  currentNodeId = nextNode.id;
-                  chatHistory.push({ node: nextNode, userInput: null });
-                  current = nextNode;
-                }
-                requestAnimationFrame(renderChat);
-              };
+              // Save initial bot message
+            
 
               const renderChat = () => {
                 const messages = container.querySelector('.chatbot-messages');
@@ -582,7 +469,6 @@ router.get('/script.js', async (req, res) => {
                     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     let html = '';
 
-                    // Render bot message
                     if (node.type === 'text') {
                       html += \`
                         <div class="message bot-message" style="
@@ -697,6 +583,7 @@ router.get('/script.js', async (req, res) => {
                                         onblur="this.style.borderColor='\${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'}'; this.style.boxShadow='none'"
                                         \${field.required ? 'required' : ''}
                                         aria-label="\${field.label}"
+                                        \${field.key === 'email' ? 'pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\\\.[a-z]{2,}$"' : ''}
                                       />
                                     </div>
                                   \`
@@ -757,7 +644,6 @@ router.get('/script.js', async (req, res) => {
                       \`;
                     }
 
-                    // Render user input
                     if (userInput) {
                       html += \`
                         <div class="message user-message" style="
@@ -770,10 +656,9 @@ router.get('/script.js', async (req, res) => {
                           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
                           animation: slide-in 0.3s ease;
                         ">
-                          \${
-                            typeof userInput === 'object'
-                              ? \`<pre style="margin: 0; font-size: 14px; font-weight: 400;">\${JSON.stringify(userInput, null, 2)}</pre>\`
-                              : \`<p style="margin: 0; font-size: 15px; font-weight: 400;">\${userInput}</p>\`
+                          \${typeof userInput === 'object'
+                            ? \`<pre style="margin: 0; font-size: 14px; font-weight: 400;">\${JSON.stringify(userInput, null, 2)}</pre>\`
+                            : \`<p style="margin: 0; font-size: 15px; font-weight: 400;">\${userInput}</p>\`
                           }
                           <span style="
                             font-size: 12px;
@@ -841,6 +726,26 @@ router.get('/script.js', async (req, res) => {
                     e.preventDefault();
                     const formData = new FormData(form);
                     const data = Object.fromEntries(formData);
+                    const email = data.email || config.userEmail;
+                    if (email && !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email)) {
+                      messages.innerHTML += \`
+                        <div style="
+                          padding: 12px 16px;
+                          background: rgba(255, 0, 0, 0.1);
+                          color: #d32f2f;
+                          border-radius: 12px;
+                          max-width: 75%;
+                          align-self: flex-start;
+                          margin-top: 16px;
+                          font-size: 14px;
+                        ">
+                          Please enter a valid email address.
+                        </div>
+                      \`;
+                      messages.scrollTop = messages.scrollHeight;
+                      isTyping = false;
+                      return;
+                    }
                     isTyping = true;
                     handleInteraction(currentNodeId, data);
                   });
@@ -874,11 +779,28 @@ router.get('/script.js', async (req, res) => {
                 });
               };
 
-              const handleInteraction = (nodeId, userInput, optionIndex = null) => {
+              const autoAdvanceTextNodes = () => {
+                let current = nodes.find((n) => n.id === currentNodeId);
+                while (current && current.type === 'text' && !chatHistory.find((h) => h.node.id === current.id && h.userInput)) {
+                  const nextEdge = edges.find((edge) => edge.source === current.id);
+                  if (!nextEdge) break;
+                  const nextNode = nodes.find((n) => n.id === nextEdge.target);
+                  if (!nextNode) break;
+                  currentNodeId = nextNode.id;
+                  chatHistory.push({ node: nextNode, userInput: null });
+
+               
+
+                  current = nextNode;
+                }
+                requestAnimationFrame(renderChat);
+              };
+
+              const handleInteraction = async (nodeId, userInput, optionIndex = null) => {
                 console.log('[Chatbot] Interaction:', { nodeId, userInput, optionIndex });
                 const currentNode = nodes.find((n) => n.id === nodeId);
 
-                // Add user input to chat history for the current node
+                // Add user input to chat history
                 const currentHistoryEntry = chatHistory.find((h) => h.node.id === nodeId && !h.userInput);
                 if (currentHistoryEntry) {
                   currentHistoryEntry.userInput = userInput;
@@ -886,8 +808,76 @@ router.get('/script.js', async (req, res) => {
                   chatHistory.push({ node: currentNode, userInput });
                 }
 
-                // Render chat to show user input immediately
+                // Render chat to show user input
                 requestAnimationFrame(renderChat);
+
+                // Handle form submission
+                if (currentNode.type === 'form') {
+                  const email = userInput.email || config.userEmail;
+                  if (!email) {
+                    const messages = container.querySelector('.chatbot-messages');
+                    messages.innerHTML += \`
+                      <div style="
+                        padding: 12px 16px;
+                        background: rgba(255, 0, 0, 0.1);
+                        color: #d32f2f;
+                        border-radius: 12px;
+                        max-width: 75%;
+                        align-self: flex-start;
+                        margin-top: 16px;
+                        font-size: 14px;
+                      ">
+                        Email is required to submit the form.
+                      </div>
+                    \`;
+                    messages.scrollTop = messages.scrollHeight;
+                    isTyping = false;
+                    return;
+                  }
+
+                  // Save form response to /api/chatbot/form-responses
+                  try {
+                    const response = await fetch('http://localhost:5000/api/chatbot/form-responses', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        userEmail: email,
+                        formId: nodeId,
+                        formName:flowName || 'Unnamed Form',
+                        flowId: config.flowId,
+                        userId: config.userId,
+                        
+                        date: new Date().toISOString().split('T')[0],
+                        submitDate: new Date().toISOString(),
+                        response: userInput,
+                      }),
+                    });
+                    if (!response.ok) {
+                      throw new Error(\`Failed to save form response: \${response.statusText}\`);
+                    }
+                    console.log('[Chatbot] Form response saved:', { userEmail: email, formId: nodeId, response: userInput });
+                  } catch (error) {
+                    console.error('[Chatbot] Error saving form response:', error.message);
+                    const messages = container.querySelector('.chatbot-messages');
+                    messages.innerHTML += \`
+                      <div style="
+                        padding: 12px 16px;
+                        background: rgba(255, 0, 0, 0.1);
+                        color: #d32f2f;
+                        border-radius: 12px;
+                        max-width: 75%;
+                        align-self: flex-start;
+                        margin-top: 16px;
+                        font-size: 14px;
+                      ">
+                        Failed to submit form. Please try again.
+                      </div>
+                    \`;
+                    messages.scrollTop = messages.scrollHeight;
+                    isTyping = false;
+                    return;
+                  }
+                }
 
                 // Find next node
                 let nextEdge = null;
@@ -903,6 +893,30 @@ router.get('/script.js', async (req, res) => {
                   if (nextNode) {
                     currentNodeId = nextNode.id;
                     chatHistory.push({ node: nextNode, userInput: null });
+
+                    // Save complete interaction (user input + bot response)
+                    fetch('http://localhost:5000/api/chatbot/interactions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        userId: config.userId,
+                        flowId: config.flowId,
+                        nodeId: nextNode.id,
+                        userInput: userInput || null,
+                        botResponse: nextNode.data.label || 'Bot response',
+                        date: new Date().toISOString().split('T')[0],
+                      }),
+                    })
+                      .then((response) => {
+                        if (!response.ok) {
+                          throw new Error(\`Failed to save interaction: \${response.statusText}\`);
+                        }
+                        console.log('[Chatbot] Interaction saved:', { userInput, botResponse: nextNode.data.label || 'Bot response' });
+                      })
+                      .catch((error) => {
+                        console.error('[Chatbot] Error saving interaction:', error.message);
+                      });
+
                     setTimeout(() => {
                       isTyping = false;
                       autoAdvanceTextNodes();
@@ -1037,4 +1051,120 @@ router.get('/script.js', async (req, res) => {
     res.status(500).send('Error serving chatbot script');
   }
 });
+
+
+// POST /interactions - Save a complete interaction
+// POST /interactions - Save a complete interaction
+router.post('/interactions', async (req, res) => {
+  try {
+    const { userId, flowId, nodeId, userInput, botResponse } = req.body;
+
+    // Validate required fields
+    if (!userId || !flowId || !botResponse) {
+      console.error(`[Chatbot] Missing interaction parameters - userId: ${userId}, flowId: ${flowId}, botResponse: ${botResponse}`);
+      return res.status(400).json({ message: 'Missing required interaction parameters' });
+    }
+
+    // Get current date in YYYY-MM-DD format
+    const currentDate = new Date().toISOString().split('T')[0]; // e.g., "2025-06-30"
+
+    // Create and save the interaction
+    const interaction = new Interaction({
+      userId,
+      flowId,
+      nodeId: nodeId || null,
+      userInput: userInput || null,
+      botResponse,
+      date: currentDate, // Add date field
+    });
+
+    await interaction.save();
+    console.log(`[Chatbot] Interaction saved: userId=${userId}, flowId=${flowId}, nodeId=${nodeId}, date=${currentDate}`);
+    res.status(201).json({ message: 'Interaction saved successfully' });
+  } catch (error) {
+    console.error('[Chatbot] Error saving interaction:', error.message);
+    res.status(500).json({ message: 'Failed to save interaction', error: error.message });
+  }
+});
+
+// GET /interactions/:flowId/:userId - Fetch all interactions
+// GET /interactions/:flowId/:userId - Fetch all interactions grouped by date
+router.get('/interactions/:flowId/:userId', async (req, res) => {
+  try {
+    const { flowId, userId } = req.params;
+
+    // Validate parameters
+    if (!flowId || !userId) {
+      console.error(`[Chatbot] Missing parameters - flowId: ${flowId}, userId: ${userId}`);
+      return res.status(400).json({ message: 'Missing flowId or userId' });
+    }
+
+    // Aggregate interactions grouped by date
+    const interactions = await Interaction.aggregate([
+      {
+        $match: { flowId, userId },
+      },
+      {
+        $sort: { timestamp: 1 }, // Sort by timestamp within each date
+      },
+      {
+        $group: {
+          _id: '$date', // Group by date field
+          interactions: {
+            $push: {
+              _id: '$_id',
+              nodeId: '$nodeId',
+              userInput: '$userInput',
+              botResponse: '$botResponse',
+              timestamp: '$timestamp',
+            },
+          },
+        },
+      },
+      {
+        $sort: { _id: 1 }, // Sort by date
+      },
+      {
+        $project: {
+          date: '$_id',
+          interactions: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    console.log(`[Chatbot] Retrieved ${interactions.length} date groups for flowId: ${flowId}, userId: ${userId}`);
+    res.status(200).json(interactions);
+  } catch (error) {
+    console.error('[Chatbot] Error fetching interactions:', error.message);
+    res.status(500).json({ message: 'Failed to fetch interactions', error: error.message });
+  }
+});
+router.post('/form-responses', async (req, res) => {
+    console.log('[Backend] Received form response:', req.body);
+
+  try {
+    const { userId,flowId,userEmail, formId, formName, date, submitDate, response } = req.body;
+    if (!userEmail || !formId || !formName || !response) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const formResponse = new FormResponse({
+      userEmail,
+      userId,
+       flowId,
+      formId,
+      formName,
+      date,
+      submitDate,
+      response,
+    });
+    await formResponse.save();
+    res.status(201).json({ message: 'Form response saved successfully' });
+  } catch (error) {
+    console.error('Error saving form response:', error);
+    res.status(500).json({ error: 'Failed to save form response' });
+  }
+});
+
+
 module.exports = router;

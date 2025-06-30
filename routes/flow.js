@@ -4,12 +4,76 @@ const Flow = require('../models/Flow');
 const User = require('../models/User');
 const Package = require('../models/packages');
 const Transaction = require('../models/transaction');
+const FormResponse = require('../models/FormResponse');
 
 // Save a new flow
 // routes/flow.js
 
 // Create Flow
+router.get('/response/detail/:responseId', async (req, res) => {
+  const { responseId } = req.params;
+  console.log('[Backend] Fetching form response details for responseId:', responseId);
 
+  try {
+    if (!responseId) {
+      return res.status(400).json({ message: 'Invalid responseId' });
+    }
+
+    const response = await FormResponse.findById(responseId);
+    if (!response) {
+      return res.status(404).json({ message: `No response found for responseId: ${responseId}` });
+    }
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error fetching form response details:', error);
+    res.status(500).json({ message: 'Failed to fetch response details', error: error.message });
+  }
+});
+router.get('/response/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    if (!userId) {
+      return res.status(400).json({ message: 'Invalid userId' });
+    }
+
+    const formResponses = await FormResponse.aggregate([
+      {
+        $match: {
+          userId: userId // Match only on userId
+        }
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: { $toDate: '$submitDate' } } }, // Convert string to date
+          responses: {
+            $push: {
+              _id: '$_id',
+              userEmail: '$userEmail',
+              formName: '$formName',
+              submitDate: '$submitDate',
+              response: '$response'
+            }
+          }
+        }
+      },
+      { $sort: { _id: -1 } },
+      { $project: { date: '$_id', responses: 1, _id: 0 } }
+    ]);
+
+    if (!formResponses.length) {
+      return res.status(404).json({ message: `No responses found for userId: ${userId}` });
+    }
+
+    res.json(formResponses);
+  } catch (error) {
+    console.error('Error fetching form responses:', error);
+    res.status(500).json({ message: 'Failed to fetch responses', error: error.message });
+  }
+});
+
+module.exports = router;
 
 // Create a new flow
 router.post('/:userId', async (req, res) => {

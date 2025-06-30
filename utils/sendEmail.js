@@ -15,7 +15,7 @@ const transporter = nodemailer.createTransport({
 });
 
 const sendVerificationEmail = async (email, name, token) => {
-  const verificationUrl = `https://custom-gpt-backend-sigma.vercel.app/api/auth/verify-email?token=${token}`; // Update with your domain in production
+  const verificationUrl = `http://165.227.120.144/api/auth/verify-email?token=${token}`; // Update with your domain in production
   const mailOptions = {
     from: `"Sharplogicians" <${process.env.EMAIL_USER}>`,
     to: email,

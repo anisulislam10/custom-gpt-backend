@@ -21,6 +21,8 @@ const packageRoutes = require("./routes/package");
 const widgetRoutes = require("./routes/widget");
 const embedRoutes = require("./routes/embed");
 const chatbotRoutes = require("./routes/chatbot");
+const app = express();
+
 
 // Connect to MongoDB and Start Server
 const startServer = async () => {

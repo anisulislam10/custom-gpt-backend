@@ -8,11 +8,12 @@ const FormResponse = require('../models/FormResponse');
 // GET /:flowId/:userId - Serve the chatbot HTML
 router.get('/:flowId/:userId', async (req, res) => {
   console.log(`[Chatbot] Serving chatbot for flowId: ${req.params.flowId}, userId: ${req.params.userId}, domain: ${req.query.domain || 'not provided'}`);
-
+  
   try {
     const { flowId, userId } = req.params;
-    const { domain, preview, primary, secondary, background, text, name, avatar } = req.query;
-    const isPreview = preview === 'true';
+    const { domain, preview } = req.query;
+    const origin = req.get('Origin') || '';
+    const isPreview = preview === 'true'; // Check if preview mode is enabled
 
     // Validate input parameters
     if (!flowId || !userId || (!isPreview && !domain)) {
@@ -21,14 +22,58 @@ router.get('/:flowId/:userId', async (req, res) => {
     }
 
     // Find the flow
-    const flow = await Flow.findOne({ _id: flowId, userId });
+    const flow = await Flow.findOne({
+      _id: flowId,
+      userId,
+    });
+
+    // Check if flow exists
     if (!flow) {
       console.error(`[Chatbot] Flow not found for flowId: ${flowId}, userId: ${userId}`);
       return res.status(404).json({ message: 'Flow not found' });
     }
 
-    // Serve chatbot HTML
-    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' http://165.227.120.144; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' http://165.227.120.144");
+    // Normalize and validate website domain (skip in preview mode)
+// if (!isPreview) {
+//   const normalizedDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+//   const normalizedStoredDomain = flow.websiteDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+//   // Check if the provided domain matches the stored domain
+//   if (normalizedDomain !== normalizedStoredDomain) {
+//     console.error(`[Chatbot] Domain mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedDomain}`);
+//     return res.status(403).json({ message: 'Invalid or unauthorized domain' });
+//   }
+
+//   // Validate request Origin (optional, for additional security)
+//   const origin = req.get('Origin') || '';
+//   if (origin) {
+//     const normalizedOrigin = origin.replace(/^https?:\/\//, '').replace(/\/$/, '');
+//     if (normalizedOrigin !== normalizedStoredDomain) {
+//       console.error(`[Chatbot] Origin mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedOrigin}`);
+//       return res.status(403).json({ message: 'Invalid request origin' });
+//     }
+//   }
+
+//   // Validate browser base URL via Referer header (optional, for additional security)
+//   const referer = req.get('Referer') || '';
+//   if (referer) {
+//     // Extract the hostname from the Referer URL
+//     try {
+//       const refererUrl = new URL(referer);
+//       const normalizedReferer = refererUrl.hostname.replace(/\/$/, '');
+//       if (normalizedReferer !== normalizedStoredDomain) {
+//         console.error(`[Chatbot] Referer mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedReferer}`);
+//         return res.status(403).json({ message: 'Invalid request referer' });
+//       }
+//     } catch (error) {
+//       console.error(`[Chatbot] Invalid Referer header: ${referer}, error: ${error.message}`);
+//       return res.status(400).json({ message: 'Invalid Referer header' });
+//     }
+//   }
+// }
+
+    // Serve chatbot data
+    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://back.techrecto.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://back.techrecto.com");
 
     res.send(`
       <!DOCTYPE html>
@@ -37,7 +82,7 @@ router.get('/:flowId/:userId', async (req, res) => {
         <title>Chatbot</title>
         <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
         <script src="/api/chatbot/script.js"></script>
-        <script src="/api/chatbot/config.js?flowId=${flowId}&userId=${userId}&primary=${encodeURIComponent(primary || '#6366f1')}&secondary=${encodeURIComponent(secondary || '#f59e0b')}&background=${encodeURIComponent(background || '#f8fafc')}&text=${encodeURIComponent(text || '#1f2937')}&name=${encodeURIComponent(name || 'Assistant')}&avatar=${encodeURIComponent(avatar || 'https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200')}"></script>
+        <script src="/api/chatbot/config.js?flowId=${req.params.flowId}&userId=${req.params.userId}&primary=${encodeURIComponent(req.query.primary || '#6366f1')}&secondary=${encodeURIComponent(req.query.secondary || '#f59e0b')}&background=${encodeURIComponent(req.query.background || '#f8fafc')}&text=${encodeURIComponent(req.query.text || '#1f2937')}&name=${encodeURIComponent(req.query.name || 'Assistant')}&avatar=${encodeURIComponent(req.query.avatar || 'https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200')}"></script>
         <script src="/chatbot-init.js"></script>
       </head>
       <body>
@@ -46,7 +91,6 @@ router.get('/:flowId/:userId', async (req, res) => {
       </html>
     `);
   } catch (error) {
-    console.error('[Chatbot] Error loading chatbot:', error.message);
     res.status(500).json({ message: 'Failed to load chatbot', error: error.message });
   }
 });
@@ -420,7 +464,7 @@ router.get('/script.js', async (req, res) => {
           let isTyping = false;
           let flowName = '';
 
-          const fetchUrl = \`http://165.227.120.144/api/flow/\${config.userId}/\${config.flowId}\`;
+          const fetchUrl = \`https://back.techrecto.com/api/flow/\${config.userId}/\${config.flowId}\`;
           console.log('[Chatbot] Fetching flow from:', fetchUrl);
           fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
             .then((response) => {
@@ -837,7 +881,7 @@ router.get('/script.js', async (req, res) => {
 
                   // Save form response to /api/chatbot/form-responses
                   try {
-                    const response = await fetch('http://165.227.120.144/api/chatbot/form-responses', {
+                    const response = await fetch('https://back.techrecto.com/api/chatbot/form-responses', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -895,7 +939,7 @@ router.get('/script.js', async (req, res) => {
                     chatHistory.push({ node: nextNode, userInput: null });
 
                     // Save complete interaction (user input + bot response)
-                    fetch('http://165.227.120.144/api/chatbot/interactions', {
+                    fetch('https://back.techrecto.com/api/chatbot/interactions', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({

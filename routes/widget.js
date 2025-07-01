@@ -49,7 +49,7 @@ router.get("/chatbot-widget.js", (req, res) => {
         border,
       }).toString();
 
-      iframe.src = 'http://165.227.120.144/api/widget?' + queryParams;
+      iframe.src = 'https://back.techrecto.com/api/widget?' + queryParams;
       iframe.width = width;
       iframe.height = height;
       iframe.frameBorder = "0";

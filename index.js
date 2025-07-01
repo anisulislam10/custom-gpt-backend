@@ -45,15 +45,16 @@ const startServer = async () => {
 };
 
 // Middleware & Security
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       frameAncestors: ["*"],
-      scriptSrc: ["'self'", "http://localhost:5000"],
+      scriptSrc: ["'self'", "https://back.techrecto.com"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'", "http://localhost:5000"],
+      connectSrc: ["'self'", "https://back.techrecto.com"],
     },
   },
 }));
@@ -63,9 +64,9 @@ app.use(cors({
     const allowedOrigins = [
       process.env.FRONTEND_URL,
       "http://localhost:3000",
-      "http://165.227.120.144",
+      "https://back.techrecto.com",
       "http://localhost:3001",
-      "http://localhost:5000",
+      "https://back.techrecto.com",
       "http://localhost",
       "http://localhost:8000",
       "https://custom-gpt-backend-sigma.vercel.app",

@@ -330,12 +330,13 @@ window.initChatbot = function () {
       `;
       return;
     }
+    
 
     let currentNodeId = null;
     let chatHistory = [];
     let isTyping = false;
 
-    const fetchUrl = `http://165.227.120.144/api/flow/${config.userId}/${config.flowId}`;
+    const fetchUrl = `https://back.techrecto.com/api/flow/${config.userId}/${config.flowId}`;
     console.log('[Chatbot] Fetching flow from:', fetchUrl);
     fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
       .then((response) => {

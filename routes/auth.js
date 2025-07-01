@@ -171,12 +171,11 @@ router.get('/verify-email', async (req, res) => {
 
     user.isVerified = true;
     user.active = true;
-    user.verificationToken = undefined; // Clear token
-    user.verificationTokenExpires = undefined; // Clear expiration
+    user.verificationToken = undefined;
+    user.verificationTokenExpires = undefined;
     await user.save();
 
-    // Redirect to login page or send a success response
-    res.redirect('https://custom-gpt-builder-frontend.vercel.app/login?verified=true'); // Update with your frontend URL
+    res.json({ message: 'Email verified, AscendToTop successfully', redirectUrl: 'https://custom-gpt-builder-frontend.vercel.app/login?verified=true' });
   } catch (error) {
     console.error('Email verification error:', error);
     res.status(500).json({ message: 'Internal server error', error: error.message });

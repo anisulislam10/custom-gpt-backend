@@ -1,41 +1,82 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const mongoSanitize = require("express-mongo-sanitize");
+const hpp = require("hpp");
+const cookieParser = require("cookie-parser");
+const httpStatus = require("http-status");
+const { errorConverter, errorHandler } = require("./middleware/error");
+const ApiError = require("./utils/ApiError");
+const connectMongoDB = require('./config/db');
 const path = require("path");
-const connectMongoDB = require("./config/db");
+const openairoutes = require("./routes/openai");
+const metaroutes = require("./routes/meta");
+const authRoutes = require("./routes/auth");
+const smtpRoutes = require("./routes/smtp");
+const flowRoutes = require("./routes/flow");
+const protectedRoutes = require("./routes/protected");
+const packageRoutes = require("./routes/package");
+const widgetRoutes = require("./routes/widget");
+const embedRoutes = require("./routes/embed");
+const chatbotRoutes = require("./routes/chatbot");
 
-const app = express();
+// Connect to MongoDB and Start Server
+const startServer = async () => {
+  try {
+    await connectMongoDB();
 
-// Serve static files
-app.use(express.static(path.join(__dirname, "public")));
+    const PORT = process.env.PORT || 5000;
+    const server = app.listen(PORT, () => {
+      console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    });
 
-// Debug request headers
-app.use((req, res, next) => {
-  console.log("Request Headers:", req.headers);
-  next();
-});
+    process.on('unhandledRejection', (err) => {
+      console.error('Unhandled Rejection:', err);
+      server.close(() => process.exit(1));
+    });
+  } catch (error) {
+    console.error('Startup Error:', error);
+    process.exit(1);
+  }
+};
 
-// CORS configuration
+// Middleware & Security
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      frameAncestors: ["*"],
+      scriptSrc: ["'self'", "http://localhost:5000"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'", "http://localhost:5000"],
+    },
+  },
+}));
+
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
       process.env.FRONTEND_URL,
-      "http://165.227.120.144",
       "http://localhost:3000",
+      "http://165.227.120.144",
       "http://localhost:3001",
       "http://localhost:5000",
+      "http://localhost",
       "http://localhost:8000",
       "https://custom-gpt-backend-sigma.vercel.app",
       "https://admin-customchatbot-app.vercel.app",
       "https://custom-gpt-builder-frontend.vercel.app",
       "https://accounts.google.com",
-    ].filter(Boolean);
-    console.log(`CORS Origin: ${origin}, URL: ${req.originalUrl}, Method: ${req.method}`);
+    ];
+    console.log(`CORS Origin: ${origin}`);
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.error(`CORS blocked: ${origin} not allowed for URL: ${req.originalUrl}`);
-      callback(new Error("Not allowed by CORS"));
+      console.error(`CORS blocked: ${origin} not allowed`);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
@@ -43,57 +84,60 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
 }));
 
-// Explicit OPTIONS handler for auth routes
-app.options("/api/auth/*", (req, res) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-api-key");
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.sendStatus(200);
+const limiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 100000,
 });
+app.use("/api/", limiter);
 
-// CSP configuration
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      frameAncestors: ["*"],
-      scriptSrc: ["'self'", "http://165.227.120.144", "http://localhost:5000"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: [
-        "'self'",
-        "http://165.227.120.144",
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:5000",
-        "http://localhost:8000",
-        "https://custom-gpt-backend-sigma.vercel.app",
-        "https://admin-customchatbot-app.vercel.app",
-        "https://custom-gpt-builder-frontend.vercel.app",
-        "https://accounts.google.com",
-      ].filter(Boolean),
-    },
+app.use(express.json({
+  limit: "10kb",
+  verify: (req, res, buf) => {
+    if (req.originalUrl.includes('/stripe/webhook')) {
+      req.rawBody = buf;
+    }
   },
 }));
-
-// Other middleware and routes...
-app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true }));
-app.use("/api/auth", require("./routes/auth"));
+app.use(cookieParser());
+app.use(hpp());
+app.use("/public", express.static(path.join(__dirname, "public")));
 
-// Start server
-const startServer = async () => {
-  await connectMongoDB();
-  const PORT = process.env.PORT || 5000;
-  const server = app.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`);
+// Import routes
+app.use("/api/openai", openairoutes);
+app.use("/api/meta", metaroutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/smtp", smtpRoutes);
+app.use("/api/flow", flowRoutes);
+app.use("/api/protected", protectedRoutes);
+app.use("/api/package", packageRoutes);
+app.use("/api/widget", widgetRoutes);
+app.use("/api/embed", embedRoutes);
+app.use("/api/chatbot", chatbotRoutes);
+
+// Health Check
+app.get("/api/health", (req, res) => {
+  res.status(httpStatus.OK).json({
+    status: "ok",
+    message: "Server is running",
+    timestamp: new Date().toISOString(),
   });
+});
 
-  process.on("unhandledRejection", (err) => {
-    console.error("Unhandled Rejection:", err);
-    server.close(() => process.exit(1));
+// Static files for production
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static("client/build"));
+  app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
   });
-};
+}
 
+// 404 & error handlers
+app.use((req, res, next) => {
+  next(new ApiError(httpStatus.NOT_FOUND, "Not found"));
+});
+app.use(errorConverter);
+app.use(errorHandler);
 
+// Start server only after setting everything
 startServer();

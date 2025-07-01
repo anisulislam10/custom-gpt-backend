@@ -28,7 +28,7 @@ router.get('/:flowId/:userId', async (req, res) => {
     }
 
     // Serve chatbot HTML
-    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' http://localhost:5000; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' http://localhost:5000");
+    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' http://165.227.120.144; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' http://165.227.120.144");
 
     res.send(`
       <!DOCTYPE html>
@@ -420,7 +420,7 @@ router.get('/script.js', async (req, res) => {
           let isTyping = false;
           let flowName = '';
 
-          const fetchUrl = \`http://localhost:5000/api/flow/\${config.userId}/\${config.flowId}\`;
+          const fetchUrl = \`http://165.227.120.144/api/flow/\${config.userId}/\${config.flowId}\`;
           console.log('[Chatbot] Fetching flow from:', fetchUrl);
           fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
             .then((response) => {
@@ -837,7 +837,7 @@ router.get('/script.js', async (req, res) => {
 
                   // Save form response to /api/chatbot/form-responses
                   try {
-                    const response = await fetch('http://localhost:5000/api/chatbot/form-responses', {
+                    const response = await fetch('http://165.227.120.144/api/chatbot/form-responses', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -895,7 +895,7 @@ router.get('/script.js', async (req, res) => {
                     chatHistory.push({ node: nextNode, userInput: null });
 
                     // Save complete interaction (user input + bot response)
-                    fetch('http://localhost:5000/api/chatbot/interactions', {
+                    fetch('http://165.227.120.144/api/chatbot/interactions', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({

@@ -60,29 +60,8 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      process.env.FRONTEND_URL,
-      "http://localhost:3000",
-      "https://back.techrecto.com",
-      "http://localhost:3001",
-      "https://back.techrecto.com",
-      "http://localhost",
-      "http://localhost:8000",
-      "https://custom-gpt-backend-sigma.vercel.app",
-      "https://admin-customchatbot-app.vercel.app",
-      "https://custom-gpt-builder-frontend.vercel.app",
-      "https://accounts.google.com",
-    ];
-    console.log(`CORS Origin: ${origin}`);
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.error(`CORS blocked: ${origin} not allowed`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
+  origin: '*', // Allow all origins
+  credentials: true, // Allow credentials (cookies, authorization headers, etc.)
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
 }));

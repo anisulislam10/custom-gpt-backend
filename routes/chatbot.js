@@ -73,7 +73,7 @@ router.get('/:flowId/:userId', async (req, res) => {
 // }
 
     // Serve chatbot data
-    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://back.techrecto.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://back.techrecto.com");
+    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' http://localhost:5000; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' http://localhost:5000");
 
     res.send(`
       <!DOCTYPE html>
@@ -123,6 +123,7 @@ router.get('/config.js', (req, res) => {
 router.get('/script.js', async (req, res) => {
   try {
     console.log('[Chatbot] Serving chatbot script');
+    
     const script = `
       window.initChatbot = function () {
         console.log('[Chatbot] Initializing chatbot');
@@ -160,13 +161,19 @@ router.get('/script.js', async (req, res) => {
               color: \${config.theme?.text || '#1f2937'};
               border-radius: 16px;
               box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.2);
-              display: flex;
+              display: none;
               flex-direction: column;
               height: 100%;
               font-family: Manrope, sans-serif;
               overflow: hidden;
-              display: none;
+              position: fixed;
+              width: 400px;
+              height: 600px;
+              bottom: 90px;
+              right: 20px;
+              z-index: 999;
               transition: opacity 0.3s ease, transform 0.3s ease;
+              pointer-events: none;
             ">
               <div class="chatbot-header" style="
                 background: \${config.theme?.primary || '#6366f1'};
@@ -191,9 +198,7 @@ router.get('/script.js', async (req, res) => {
                     padding: 8px;
                     cursor: pointer;
                     transition: background 0.2s;
-                  "
-                  onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
-                  onmouseout="this.style.background='transparent'">
+                  ">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
                     </svg>
@@ -208,9 +213,7 @@ router.get('/script.js', async (req, res) => {
                     font-size: 14px;
                     font-weight: 500;
                     transition: background 0.2s;
-                  "
-                  onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
-                  onmouseout="this.style.background='transparent'">
+                  ">
                     Reset
                   </button>
                   <button id="close-chat" aria-label="Close chat" style="
@@ -221,9 +224,8 @@ router.get('/script.js', async (req, res) => {
                     padding: 8px;
                     cursor: pointer;
                     display: none;
-                    transition: background 0.2s;"
-                  onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
-                  onmouseout="this.style.background='transparent'">
+                    transition: background 0.2s;
+                  ">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M18 6L6 18M6 6l12 12"/>
                     </svg>
@@ -307,6 +309,7 @@ router.get('/script.js', async (req, res) => {
                   />
                   <button
                     type="submit"
+                    class="chatbot-submit-button"
                     style="
                       background: \${config.theme?.primary || '#6366f1'};
                       color: #ffffff;
@@ -320,8 +323,6 @@ router.get('/script.js', async (req, res) => {
                       transition: background 0.2s, transform 0.2s;
                       z-index: 1001;
                     "
-                    onmouseover="this.style.background='\${config.theme?.secondary || '#4f46e5'}'"
-                    onmouseout="this.style.background='\${config.theme?.primary || '#6366f1'}'"
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M5 12h14M5 12l6-6m-6 6l6 6"/>
@@ -334,13 +335,15 @@ router.get('/script.js', async (req, res) => {
 
           // Add floating toggle button
           const toggleIcon = document.createElement('button');
+          toggleIcon.id = 'chatbot-toggle';
+          toggleIcon.className = 'chatbot-toggle-visible';
+          toggleIcon.setAttribute('aria-label', 'Toggle assistant');
+          toggleIcon.setAttribute('tabindex', '0');
           toggleIcon.innerHTML = \`
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
               <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
             </svg>
           \`;
-          toggleIcon.setAttribute('aria-label', 'Toggle assistant');
-          toggleIcon.setAttribute('tabindex', '0');
           toggleIcon.style.cssText = \`
             position: fixed;
             bottom: 20px;
@@ -356,21 +359,31 @@ router.get('/script.js', async (req, res) => {
             align-items: center;
             justify-content: center;
             z-index: 1000;
-            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+            transition: all 0.3s ease;
+            pointer-events: auto;
+            opacity: 1;
+            visibility: visible;
           \`;
-          toggleIcon.addEventListener('mouseover', () => {
-            toggleIcon.style.transform = 'scale(1.1)';
-            toggleIcon.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
+
+          // Remove any existing toggles
+          const existingToggles = document.querySelectorAll('#chatbot-toggle');
+          existingToggles.forEach((toggle, index) => {
+            if (index > 0) toggle.remove();
           });
-          toggleIcon.addEventListener('mouseout', () => {
-            toggleIcon.style.transform = 'scale(1)';
-            toggleIcon.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-          });
-          toggleIcon.addEventListener('click', () => {
-            const isHidden = chatbotWrapper.style.display === 'none' || !chatbotWrapper.style.display;
-            chatbotWrapper.style.display = isHidden ? 'flex' : 'none';
-            toggleIcon.style.display = isHidden ? 'none' : 'flex';
-            if (isHidden) {
+
+          // Append toggle to DOM
+          document.body.appendChild(toggleIcon);
+
+          let isChatbotOpen = false;
+          const chatbotWrapper = container.querySelector('.chatbot-wrapper');
+
+          // Toggle chatbot visibility
+          const toggleChatbot = () => {
+            console.log('[Chatbot] Toggle clicked, isChatbotOpen:', isChatbotOpen);
+            if (!isChatbotOpen) {
+              console.log('[Chatbot] Opening chatbot');
+              chatbotWrapper.style.display = 'flex';
+              chatbotWrapper.style.pointerEvents = 'auto';
               chatbotWrapper.style.opacity = '0';
               chatbotWrapper.style.transform = 'translateY(20px)';
               setTimeout(() => {
@@ -380,23 +393,69 @@ router.get('/script.js', async (req, res) => {
                   container.querySelector('.chatbot-input input')?.focus();
                 }
               }, 10);
+              toggleIcon.classList.add('chatbot-toggle-hidden');
+              toggleIcon.classList.remove('chatbot-toggle-visible');
+              if (document.body.contains(toggleIcon)) {
+                toggleIcon.remove();
+                console.log('[Chatbot] Toggle removed from DOM');
+              }
+              isChatbotOpen = true;
+            } else {
+              console.log('[Chatbot] Closing chatbot');
+              chatbotWrapper.style.display = 'none';
+              chatbotWrapper.style.pointerEvents = 'none';
+              if (!document.body.contains(toggleIcon)) {
+                document.body.appendChild(toggleIcon);
+                console.log('[Chatbot] Toggle restored to DOM');
+              }
+              toggleIcon.classList.remove('chatbot-toggle-hidden');
+              toggleIcon.classList.add('chatbot-toggle-visible');
+              isChatbotOpen = false;
             }
-          });
+            updateResponsiveStyles();
+          };
+
+          // Toggle event listeners
+          toggleIcon.addEventListener('click', toggleChatbot);
           toggleIcon.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              toggleIcon.click();
+              toggleChatbot();
             }
           });
-          document.body.appendChild(toggleIcon);
 
-          const chatbotWrapper = container.querySelector('.chatbot-wrapper');
-          chatbotWrapper.style.position = 'fixed';
-          chatbotWrapper.style.width = '400px';
-          chatbotWrapper.style.height = '600px';
-          chatbotWrapper.style.bottom = '90px';
-          chatbotWrapper.style.right = '20px';
-          chatbotWrapper.style.zIndex = '999';
+          // Hover effects for toggle
+          toggleIcon.addEventListener('mouseover', () => {
+            if (!isChatbotOpen && document.body.contains(toggleIcon)) {
+              toggleIcon.style.transform = 'scale(1.1)';
+              toggleIcon.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
+            }
+          });
+          toggleIcon.addEventListener('mouseout', () => {
+            if (!isChatbotOpen && document.body.contains(toggleIcon)) {
+              toggleIcon.style.transform = 'scale(1)';
+              toggleIcon.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+            }
+          });
+
+          // Close button logic
+          const closeChat = container.querySelector('#close-chat');
+          closeChat.addEventListener('click', () => {
+            console.log('[Chatbot] Close button clicked');
+            toggleChatbot();
+          });
+          closeChat.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleChatbot();
+            }
+          });
+          closeChat.addEventListener('mouseover', () => {
+            closeChat.style.background = 'rgba(255, 255, 255, 0.1)';
+          });
+          closeChat.addEventListener('mouseout', () => {
+            closeChat.style.background = 'transparent';
+          });
 
           // Theme toggle logic
           let isDarkMode = false;
@@ -410,18 +469,127 @@ router.get('/script.js', async (req, res) => {
             chatbotWrapper.querySelector('.chatbot-input input').style.background = isDarkMode ? 'rgba(75, 85, 99, 0.7)' : 'rgba(255, 255, 255, 0.7)';
             requestAnimationFrame(renderChat);
           });
-
-          // Close button logic for mobile
-          const closeChat = container.querySelector('#close-chat');
-          closeChat.addEventListener('click', () => {
-            chatbotWrapper.style.display = 'none';
-            toggleIcon.style.display = 'flex';
+          themeToggle.addEventListener('mouseover', () => {
+            themeToggle.style.background = 'rgba(255, 255, 255, 0.1)';
           });
-          closeChat.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              closeChat.click();
+          themeToggle.addEventListener('mouseout', () => {
+            themeToggle.style.background = 'transparent';
+          });
+
+          // Reset button hover
+          const resetChat = container.querySelector('#reset-chat');
+          resetChat.addEventListener('mouseover', () => {
+            resetChat.style.background = 'rgba(255, 255, 255, 0.1)';
+          });
+          resetChat.addEventListener('mouseout', () => {
+            resetChat.style.background = 'transparent';
+          });
+
+          // Submit button hover
+          const submitButton = container.querySelector('.chatbot-submit-button');
+          submitButton.addEventListener('mouseover', () => {
+            submitButton.style.background = config.theme?.secondary || '#4f46e5';
+          });
+          submitButton.addEventListener('mouseout', () => {
+            submitButton.style.background = config.theme?.primary || '#6366f1';
+          });
+
+          // Mutation observer for toggle
+          const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              const removedNodes = Array.from(mutation.removedNodes);
+              const addedNodes = Array.from(mutation.addedNodes);
+              if (addedNodes.includes(toggleIcon) && isChatbotOpen) {
+                console.log('[Chatbot] Toggle unexpectedly added to DOM, removing');
+                toggleIcon.remove();
+              }
+              if (removedNodes.includes(toggleIcon) && !isChatbotOpen) {
+                console.log('[Chatbot] Toggle unexpectedly removed, restoring');
+                document.body.appendChild(toggleIcon);
+              }
+            });
+          });
+          observer.observe(document.body, { childList: true });
+
+          // Responsive styles
+          const updateResponsiveStyles = () => {
+            console.log('[Chatbot] updateResponsiveStyles called, isChatbotOpen:', isChatbotOpen);
+            if (window.innerWidth <= 480) {
+              closeChat.style.display = 'block';
+              chatbotWrapper.style.width = '100vw';
+              chatbotWrapper.style.height = '100vh';
+              chatbotWrapper.style.borderRadius = '0';
+              chatbotWrapper.style.top = '0';
+              chatbotWrapper.style.right = '0';
+              chatbotWrapper.style.bottom = '0';
+              chatbotWrapper.style.left = '0';
+            } else {
+              closeChat.style.display = 'none';
+              chatbotWrapper.style.width = '400px';
+              chatbotWrapper.style.height = '600px';
+              chatbotWrapper.style.borderRadius = '16px';
+              chatbotWrapper.style.top = '';
+              chatbotWrapper.style.right = '20px';
+              chatbotWrapper.style.bottom = '90px';
+              chatbotWrapper.style.left = '';
             }
+            if (!isChatbotOpen) {
+              chatbotWrapper.style.display = 'none';
+              chatbotWrapper.style.pointerEvents = 'none';
+              if (!document.body.contains(toggleIcon)) {
+                document.body.appendChild(toggleIcon);
+                toggleIcon.classList.remove('chatbot-toggle-hidden');
+                toggleIcon.classList.add('chatbot-toggle-visible');
+                console.log('[Chatbot] Toggle appended to DOM by updateResponsiveStyles');
+              }
+            } else {
+              chatbotWrapper.style.display = 'flex';
+              chatbotWrapper.style.pointerEvents = 'auto';
+              if (document.body.contains(toggleIcon)) {
+                toggleIcon.remove();
+                console.log('[Chatbot] Toggle removed from DOM by updateResponsiveStyles');
+              }
+            }
+            console.log('[Chatbot] Responsive styles updated:', {
+              device: window.innerWidth <= 480 ? 'mobile' : 'desktop',
+              toggleInDOM: document.body.contains(toggleIcon),
+              classes: toggleIcon.className,
+              isChatbotOpen,
+            });
+          };
+
+          // Debounce resize event
+          let resizeTimeout;
+          window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(updateResponsiveStyles, 100);
+          });
+
+          // Initial call to set responsive styles
+          updateResponsiveStyles();
+
+          // Debug mousemove
+          document.addEventListener('mousemove', (e) => {
+            const elements = document.elementsFromPoint(e.clientX, e.clientY);
+            const toggleState = {
+              id: toggleIcon.id || 'chatbot-toggle',
+              inDOM: document.body.contains(toggleIcon),
+              classes: toggleIcon.className,
+              display: document.body.contains(toggleIcon) ? window.getComputedStyle(toggleIcon).display : 'not in DOM',
+              pointerEvents: document.body.contains(toggleIcon) ? window.getComputedStyle(toggleIcon).pointerEvents : 'not in DOM',
+              opacity: document.body.contains(toggleIcon) ? window.getComputedStyle(toggleIcon).opacity : 'not in DOM',
+              zIndex: document.body.contains(toggleIcon) ? window.getComputedStyle(toggleIcon).zIndex : 'not in DOM',
+              visibility: document.body.contains(toggleIcon) ? window.getComputedStyle(toggleIcon).visibility : 'not in DOM',
+              position: document.body.contains(toggleIcon) ? toggleIcon.getBoundingClientRect() : 'not in DOM',
+              isChatbotOpen,
+            };
+            console.log('[Chatbot] Elements under cursor:', elements.map(el => ({
+              id: el.id || el.tagName,
+              zIndex: window.getComputedStyle(el).zIndex,
+              display: window.getComputedStyle(el).display,
+              visibility: window.getComputedStyle(el).visibility,
+            })));
+            console.log('[Chatbot] Toggle state on mousemove:', toggleState);
           });
 
           if (!config.userId || !config.flowId) {
@@ -464,7 +632,7 @@ router.get('/script.js', async (req, res) => {
           let isTyping = false;
           let flowName = '';
 
-          const fetchUrl = \`https://back.techrecto.com/api/flow/\${config.userId}/\${config.flowId}\`;
+          const fetchUrl = \`http://localhost:5000/api/flow/\${config.userId}/\${config.flowId}\`;
           console.log('[Chatbot] Fetching flow from:', fetchUrl);
           fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
             .then((response) => {
@@ -479,7 +647,7 @@ router.get('/script.js', async (req, res) => {
               if (!flow.nodes || !flow.edges) {
                 throw new Error('Invalid flow data: nodes or edges missing');
               }
-              flowName = flow.name || 'Unnamed Flow'; // Store flow name for form submissions
+              flowName = flow.name || 'Unnamed Flow';
               const { nodes, edges } = flow;
 
               const incomingEdges = edges.reduce((acc, edge) => {
@@ -492,9 +660,6 @@ router.get('/script.js', async (req, res) => {
               }
               currentNodeId = startNode.id;
               chatHistory = [{ node: startNode, userInput: null }];
-
-              // Save initial bot message
-            
 
               const renderChat = () => {
                 const messages = container.querySelector('.chatbot-messages');
@@ -832,9 +997,6 @@ router.get('/script.js', async (req, res) => {
                   if (!nextNode) break;
                   currentNodeId = nextNode.id;
                   chatHistory.push({ node: nextNode, userInput: null });
-
-               
-
                   current = nextNode;
                 }
                 requestAnimationFrame(renderChat);
@@ -844,7 +1006,6 @@ router.get('/script.js', async (req, res) => {
                 console.log('[Chatbot] Interaction:', { nodeId, userInput, optionIndex });
                 const currentNode = nodes.find((n) => n.id === nodeId);
 
-                // Add user input to chat history
                 const currentHistoryEntry = chatHistory.find((h) => h.node.id === nodeId && !h.userInput);
                 if (currentHistoryEntry) {
                   currentHistoryEntry.userInput = userInput;
@@ -852,10 +1013,8 @@ router.get('/script.js', async (req, res) => {
                   chatHistory.push({ node: currentNode, userInput });
                 }
 
-                // Render chat to show user input
                 requestAnimationFrame(renderChat);
 
-                // Handle form submission
                 if (currentNode.type === 'form') {
                   const email = userInput.email || config.userEmail;
                   if (!email) {
@@ -879,18 +1038,16 @@ router.get('/script.js', async (req, res) => {
                     return;
                   }
 
-                  // Save form response to /api/chatbot/form-responses
                   try {
-                    const response = await fetch('https://back.techrecto.com/api/chatbot/form-responses', {
+                    const response = await fetch('http://localhost:5000/api/chatbot/form-responses', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         userEmail: email,
                         formId: nodeId,
-                        formName:flowName || 'Unnamed Form',
+                        formName: flowName || 'Unnamed Form',
                         flowId: config.flowId,
                         userId: config.userId,
-                        
                         date: new Date().toISOString().split('T')[0],
                         submitDate: new Date().toISOString(),
                         response: userInput,
@@ -923,7 +1080,6 @@ router.get('/script.js', async (req, res) => {
                   }
                 }
 
-                // Find next node
                 let nextEdge = null;
                 if (currentNode.type === 'custom' && optionIndex !== null) {
                   const sourceHandle = \`option-\${optionIndex}\`;
@@ -938,8 +1094,7 @@ router.get('/script.js', async (req, res) => {
                     currentNodeId = nextNode.id;
                     chatHistory.push({ node: nextNode, userInput: null });
 
-                    // Save complete interaction (user input + bot response)
-                    fetch('https://back.techrecto.com/api/chatbot/interactions', {
+                    fetch('http://localhost:5000/api/chatbot/interactions', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -1038,16 +1193,27 @@ router.get('/script.js', async (req, res) => {
               background: \${config.theme?.primary || '#6366f1'};
               border-radius: 3px;
             }
+            .chatbot-toggle-hidden {
+              display: none !important;
+              pointer-events: none !important;
+              opacity: 0 !important;
+              z-index: -1000 !important;
+              visibility: hidden !important;
+              position: absolute !important;
+              left: -9999px !important;
+              top: -9999px !important;
+            }
+            .chatbot-toggle-visible {
+              display: flex !important;
+              pointer-events: auto !important;
+              opacity: 1 !important;
+              z-index: 1000 !important;
+              visibility: visible !important;
+              position: fixed !important;
+              bottom: 20px !important;
+              right: 20px !important;
+            }
             @media (max-width: 480px) {
-              .chatbot-wrapper {
-                width: 100vw !important;
-                height: 100vh !important;
-                border-radius: 0 !important;
-                top: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                left: 0 !important;
-              }
               .chatbot-messages {
                 padding: 16px !important;
                 font-size: 14px !important;
@@ -1073,18 +1239,6 @@ router.get('/script.js', async (req, res) => {
             }
           \`;
           document.head.appendChild(styleSheet);
-
-          // Responsive adjustments
-          const updateResponsiveStyles = () => {
-            if (window.innerWidth <= 480) {
-              closeChat.style.display = 'block';
-              toggleIcon.style.display = chatbotWrapper.style.display === 'none' ? 'flex' : 'none';
-            } else {
-              closeChat.style.display = 'none';
-            }
-          };
-          window.addEventListener('resize', updateResponsiveStyles);
-          updateResponsiveStyles();
         });
       };
     `;
@@ -1185,28 +1339,36 @@ router.get('/interactions/:flowId/:userId', async (req, res) => {
   }
 });
 router.post('/form-responses', async (req, res) => {
-    console.log('[Backend] Received form response:', req.body);
+  console.log('[Backend] Received form response:', req.body);
 
   try {
-    const { userId,flowId,userEmail, formId, formName, date, submitDate, response } = req.body;
-    if (!userEmail || !formId || !formName || !response) {
+    const { userEmail, userId, flowId, formId, formName, date, submitDate, response, ...customFields } = req.body;
+
+    // Validate required fields
+    if (!userEmail || !userId || !flowId || !formId || !formName || !date || !submitDate || !response) {
+      console.error('[Backend] Missing required fields:', { userEmail, userId, flowId, formId, formName, date, submitDate, response });
       return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    // Create the form response with all fields, including custom ones
     const formResponse = new FormResponse({
       userEmail,
       userId,
-       flowId,
+      flowId,
       formId,
       formName,
       date,
       submitDate,
       response,
+      ...customFields, // Spread any additional custom fields
     });
+
     await formResponse.save();
+    console.log(`[Backend] Form response saved: userId=${userId}, flowId=${flowId}, formId=${formId}, date=${date}`);
     res.status(201).json({ message: 'Form response saved successfully' });
   } catch (error) {
-    console.error('Error saving form response:', error);
-    res.status(500).json({ error: 'Failed to save form response' });
+    console.error('[Backend] Error saving form response:', error.message);
+    res.status(500).json({ error: 'Failed to save form response', details: error.message });
   }
 });
 

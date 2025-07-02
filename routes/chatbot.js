@@ -153,15 +153,24 @@ router.get('/script.js', async (req, res) => {
             return;
           }
 
+          // Clean up any existing chatbot elements
+          const existingWrappers = document.querySelectorAll('.chatbot-wrapper');
+          existingWrappers.forEach(wrapper => wrapper.remove());
+          const existingToggles = document.querySelectorAll('#chatbot-toggle');
+          existingToggles.forEach(toggle => toggle.remove());
+
           // Initialize chatbot UI
           container.innerHTML = \`
-            <div class="chatbot-wrapper" style="
+            <div class="chatbot-wrapper" id="chatbot-wrapper" style="
+              display: none !important;
+              pointer-events: none !important;
+              opacity: 0 !important;
+              z-index: -1000 !important;
               background: rgba(255, 255, 255, 0.9);
               backdrop-filter: blur(10px);
               color: \${config.theme?.text || '#1f2937'};
               border-radius: 16px;
               box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.2);
-              display: none;
               flex-direction: column;
               height: 100%;
               font-family: Manrope, sans-serif;
@@ -171,9 +180,7 @@ router.get('/script.js', async (req, res) => {
               height: 600px;
               bottom: 90px;
               right: 20px;
-              z-index: 999;
-              transition: opacity 0.3s ease, transform 0.3s ease;
-              pointer-events: none;
+              transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
             ">
               <div class="chatbot-header" style="
                 background: \${config.theme?.primary || '#6366f1'};
@@ -334,7 +341,7 @@ router.get('/script.js', async (req, res) => {
           \`;
 
           // Add floating toggle button
-          const toggleIcon = document.createElement('button');
+          let toggleIcon = document.createElement('button'); // Changed to let
           toggleIcon.id = 'chatbot-toggle';
           toggleIcon.className = 'chatbot-toggle-visible';
           toggleIcon.setAttribute('aria-label', 'Toggle assistant');
@@ -364,28 +371,52 @@ router.get('/script.js', async (req, res) => {
             opacity: 1;
             visibility: visible;
           \`;
-
-          // Remove any existing toggles
-          const existingToggles = document.querySelectorAll('#chatbot-toggle');
-          existingToggles.forEach((toggle, index) => {
-            if (index > 0) toggle.remove();
-          });
-
-          // Append toggle to DOM
           document.body.appendChild(toggleIcon);
+          console.log('[Chatbot] Toggle button added to DOM');
 
           let isChatbotOpen = false;
-          const chatbotWrapper = container.querySelector('.chatbot-wrapper');
+          const chatbotWrapper = container.querySelector('#chatbot-wrapper');
+
+          // Explicitly ensure chatbot is closed initially
+          const setClosedState = () => {
+            chatbotWrapper.style.display = 'none';
+            chatbotWrapper.style.pointerEvents = 'none';
+            chatbotWrapper.style.opacity = '0';
+            chatbotWrapper.style.visibility = 'hidden';
+            chatbotWrapper.style.zIndex = '-1000';
+            if (!document.body.contains(toggleIcon)) {
+              document.body.appendChild(toggleIcon);
+              toggleIcon.classList.remove('chatbot-toggle-hidden');
+              toggleIcon.classList.add('chatbot-toggle-visible');
+            }
+            try {
+              window.parent.postMessage({ type: 'chatbotState', isChatbotOpen: false }, '*');
+            } catch (e) {
+              console.error('[Chatbot] Error sending postMessage:', e.message);
+            }
+            console.log('[Chatbot] Set closed state:', {
+              display: chatbotWrapper.style.display,
+              pointerEvents: chatbotWrapper.style.pointerEvents,
+              opacity: chatbotWrapper.style.opacity,
+              visibility: chatbotWrapper.style.visibility,
+              zIndex: chatbotWrapper.style.zIndex,
+              toggleInDOM: document.body.contains(toggleIcon),
+              toggleClasses: toggleIcon.className,
+              isChatbotOpen
+            });
+          };
+          setClosedState();
 
           // Toggle chatbot visibility
           const toggleChatbot = () => {
-            console.log('[Chatbot] Toggle clicked, isChatbotOpen:', isChatbotOpen);
+            console.log('[Chatbot] toggleChatbot called, isChatbotOpen:', isChatbotOpen);
             if (!isChatbotOpen) {
               console.log('[Chatbot] Opening chatbot');
               chatbotWrapper.style.display = 'flex';
               chatbotWrapper.style.pointerEvents = 'auto';
               chatbotWrapper.style.opacity = '0';
-              chatbotWrapper.style.transform = 'translateY(20px)';
+              chatbotWrapper.style.visibility = 'visible';
+              chatbotWrapper.style.zIndex = '999';
               setTimeout(() => {
                 chatbotWrapper.style.opacity = '1';
                 chatbotWrapper.style.transform = 'translateY(0)';
@@ -400,20 +431,33 @@ router.get('/script.js', async (req, res) => {
                 console.log('[Chatbot] Toggle removed from DOM');
               }
               isChatbotOpen = true;
+              try {
+                window.parent.postMessage({ type: 'chatbotState', isChatbotOpen: true }, '*');
+              } catch (e) {
+                console.error('[Chatbot] Error sending postMessage:', e.message);
+              }
             } else {
               console.log('[Chatbot] Closing chatbot');
-              chatbotWrapper.style.display = 'none';
-              chatbotWrapper.style.pointerEvents = 'none';
-              if (!document.body.contains(toggleIcon)) {
-                document.body.appendChild(toggleIcon);
-                console.log('[Chatbot] Toggle restored to DOM');
-              }
-              toggleIcon.classList.remove('chatbot-toggle-hidden');
-              toggleIcon.classList.add('chatbot-toggle-visible');
+              setClosedState();
               isChatbotOpen = false;
             }
+            console.log('[Chatbot] Chatbot state after toggle:', {
+              display: chatbotWrapper.style.display,
+              pointerEvents: chatbotWrapper.style.pointerEvents,
+              opacity: chatbotWrapper.style.opacity,
+              visibility: chatbotWrapper.style.visibility,
+              zIndex: chatbotWrapper.style.zIndex,
+              toggleInDOM: document.body.contains(toggleIcon),
+              toggleClasses: toggleIcon.className,
+              isChatbotOpen
+            });
             updateResponsiveStyles();
           };
+
+          // Remove existing event listeners to prevent duplicates
+          const oldToggleIcon = toggleIcon.cloneNode(true);
+          toggleIcon.replaceWith(oldToggleIcon);
+          toggleIcon = oldToggleIcon; // Now valid with let
 
           // Toggle event listeners
           toggleIcon.addEventListener('click', toggleChatbot);
@@ -440,10 +484,7 @@ router.get('/script.js', async (req, res) => {
 
           // Close button logic
           const closeChat = container.querySelector('#close-chat');
-          closeChat.addEventListener('click', () => {
-            console.log('[Chatbot] Close button clicked');
-            toggleChatbot();
-          });
+          closeChat.addEventListener('click', toggleChatbot);
           closeChat.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -494,7 +535,7 @@ router.get('/script.js', async (req, res) => {
             submitButton.style.background = config.theme?.primary || '#6366f1';
           });
 
-          // Mutation observer for toggle
+          // Mutation observer for toggle and wrapper
           const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
               const removedNodes = Array.from(mutation.removedNodes);
@@ -506,6 +547,12 @@ router.get('/script.js', async (req, res) => {
               if (removedNodes.includes(toggleIcon) && !isChatbotOpen) {
                 console.log('[Chatbot] Toggle unexpectedly removed, restoring');
                 document.body.appendChild(toggleIcon);
+                toggleIcon.classList.remove('chatbot-toggle-hidden');
+                toggleIcon.classList.add('chatbot-toggle-visible');
+              }
+              if (addedNodes.includes(chatbotWrapper) && !isChatbotOpen) {
+                console.log('[Chatbot] Wrapper unexpectedly added to DOM, setting closed state');
+                setClosedState();
               }
             });
           });
@@ -514,47 +561,63 @@ router.get('/script.js', async (req, res) => {
           // Responsive styles
           const updateResponsiveStyles = () => {
             console.log('[Chatbot] updateResponsiveStyles called, isChatbotOpen:', isChatbotOpen);
+            const closeChat = container.querySelector('#close-chat');
             if (window.innerWidth <= 480) {
-              closeChat.style.display = 'block';
-              chatbotWrapper.style.width = '100vw';
-              chatbotWrapper.style.height = '100vh';
-              chatbotWrapper.style.borderRadius = '0';
-              chatbotWrapper.style.top = '0';
-              chatbotWrapper.style.right = '0';
-              chatbotWrapper.style.bottom = '0';
-              chatbotWrapper.style.left = '0';
+              closeChat.style.display = isChatbotOpen ? 'block' : 'none';
+              if (isChatbotOpen) {
+                chatbotWrapper.style.width = '100vw';
+                chatbotWrapper.style.height = '100vh';
+                chatbotWrapper.style.borderRadius = '0';
+                chatbotWrapper.style.top = '0';
+                chatbotWrapper.style.right = '0';
+                chatbotWrapper.style.bottom = '0';
+                chatbotWrapper.style.left = '0';
+                chatbotWrapper.style.zIndex = '999';
+                chatbotWrapper.style.display = 'flex';
+                chatbotWrapper.style.pointerEvents = 'auto';
+                chatbotWrapper.style.opacity = '1';
+                chatbotWrapper.style.visibility = 'visible';
+              } else {
+                setClosedState();
+              }
             } else {
               closeChat.style.display = 'none';
-              chatbotWrapper.style.width = '400px';
-              chatbotWrapper.style.height = '600px';
-              chatbotWrapper.style.borderRadius = '16px';
-              chatbotWrapper.style.top = '';
-              chatbotWrapper.style.right = '20px';
-              chatbotWrapper.style.bottom = '90px';
-              chatbotWrapper.style.left = '';
+              if (isChatbotOpen) {
+                chatbotWrapper.style.width = '400px';
+                chatbotWrapper.style.height = '600px';
+                chatbotWrapper.style.borderRadius = '16px';
+                chatbotWrapper.style.top = '';
+                chatbotWrapper.style.right = '20px';
+                chatbotWrapper.style.bottom = '90px';
+                chatbotWrapper.style.left = '';
+                chatbotWrapper.style.zIndex = '999';
+                chatbotWrapper.style.display = 'flex';
+                chatbotWrapper.style.pointerEvents = 'auto';
+                chatbotWrapper.style.opacity = '1';
+                chatbotWrapper.style.visibility = 'visible';
+              } else {
+                setClosedState();
+              }
             }
-            if (!isChatbotOpen) {
-              chatbotWrapper.style.display = 'none';
-              chatbotWrapper.style.pointerEvents = 'none';
-              if (!document.body.contains(toggleIcon)) {
-                document.body.appendChild(toggleIcon);
-                toggleIcon.classList.remove('chatbot-toggle-hidden');
-                toggleIcon.classList.add('chatbot-toggle-visible');
-                console.log('[Chatbot] Toggle appended to DOM by updateResponsiveStyles');
-              }
-            } else {
-              chatbotWrapper.style.display = 'flex';
-              chatbotWrapper.style.pointerEvents = 'auto';
-              if (document.body.contains(toggleIcon)) {
-                toggleIcon.remove();
-                console.log('[Chatbot] Toggle removed from DOM by updateResponsiveStyles');
-              }
+            if (!isChatbotOpen && !document.body.contains(toggleIcon)) {
+              document.body.appendChild(toggleIcon);
+              toggleIcon.classList.remove('chatbot-toggle-hidden');
+              toggleIcon.classList.add('chatbot-toggle-visible');
+              console.log('[Chatbot] Toggle appended to DOM by updateResponsiveStyles');
+            } else if (isChatbotOpen && document.body.contains(toggleIcon)) {
+              toggleIcon.remove();
+              console.log('[Chatbot] Toggle removed from DOM by updateResponsiveStyles');
             }
             console.log('[Chatbot] Responsive styles updated:', {
               device: window.innerWidth <= 480 ? 'mobile' : 'desktop',
               toggleInDOM: document.body.contains(toggleIcon),
-              classes: toggleIcon.className,
-              isChatbotOpen,
+              toggleClasses: toggleIcon.className,
+              chatbotDisplay: chatbotWrapper.style.display,
+              chatbotPointerEvents: chatbotWrapper.style.pointerEvents,
+              chatbotOpacity: chatbotWrapper.style.opacity,
+              chatbotVisibility: chatbotWrapper.style.visibility,
+              chatbotZIndex: chatbotWrapper.style.zIndex,
+              isChatbotOpen
             });
           };
 
@@ -581,15 +644,27 @@ router.get('/script.js', async (req, res) => {
               zIndex: document.body.contains(toggleIcon) ? window.getComputedStyle(toggleIcon).zIndex : 'not in DOM',
               visibility: document.body.contains(toggleIcon) ? window.getComputedStyle(toggleIcon).visibility : 'not in DOM',
               position: document.body.contains(toggleIcon) ? toggleIcon.getBoundingClientRect() : 'not in DOM',
-              isChatbotOpen,
+              isChatbotOpen
+            };
+            const wrapperState = {
+              id: chatbotWrapper.id || 'chatbot-wrapper',
+              inDOM: document.body.contains(chatbotWrapper),
+              display: window.getComputedStyle(chatbotWrapper).display,
+              pointerEvents: window.getComputedStyle(chatbotWrapper).pointerEvents,
+              opacity: window.getComputedStyle(chatbotWrapper).opacity,
+              visibility: window.getComputedStyle(chatbotWrapper).visibility,
+              zIndex: window.getComputedStyle(chatbotWrapper).zIndex,
+              position: chatbotWrapper.getBoundingClientRect(),
+              isChatbotOpen
             };
             console.log('[Chatbot] Elements under cursor:', elements.map(el => ({
               id: el.id || el.tagName,
               zIndex: window.getComputedStyle(el).zIndex,
               display: window.getComputedStyle(el).display,
-              visibility: window.getComputedStyle(el).visibility,
+              visibility: window.getComputedStyle(el).visibility
             })));
             console.log('[Chatbot] Toggle state on mousemove:', toggleState);
+            console.log('[Chatbot] Wrapper state on mousemove:', wrapperState);
           });
 
           if (!config.userId || !config.flowId) {
@@ -1050,8 +1125,8 @@ router.get('/script.js', async (req, res) => {
                         userId: config.userId,
                         date: new Date().toISOString().split('T')[0],
                         submitDate: new Date().toISOString(),
-                        response: userInput,
-                      }),
+                        response: userInput
+                      })
                     });
                     if (!response.ok) {
                       throw new Error(\`Failed to save form response: \${response.statusText}\`);
@@ -1103,8 +1178,8 @@ router.get('/script.js', async (req, res) => {
                         nodeId: nextNode.id,
                         userInput: userInput || null,
                         botResponse: nextNode.data.label || 'Bot response',
-                        date: new Date().toISOString().split('T')[0],
-                      }),
+                        date: new Date().toISOString().split('T')[0]
+                      })
                     })
                       .then((response) => {
                         if (!response.ok) {
@@ -1193,6 +1268,13 @@ router.get('/script.js', async (req, res) => {
               background: \${config.theme?.primary || '#6366f1'};
               border-radius: 3px;
             }
+            #chatbot-wrapper[style*="display: none"] {
+              display: none !important;
+              pointer-events: none !important;
+              opacity: 0 !important;
+              visibility: hidden !important;
+              z-index: -1000 !important;
+            }
             .chatbot-toggle-hidden {
               display: none !important;
               pointer-events: none !important;
@@ -1224,9 +1306,6 @@ router.get('/script.js', async (req, res) => {
               .chatbot-input input {
                 font-size: 14px !important;
               }
-              #close-chat {
-                display: block !important;
-              }
               .message {
                 max-width: 85% !important;
               }
@@ -1249,7 +1328,6 @@ router.get('/script.js', async (req, res) => {
     res.status(500).send('Error serving chatbot script');
   }
 });
-
 
 // POST /interactions - Save a complete interaction
 // POST /interactions - Save a complete interaction

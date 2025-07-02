@@ -75,7 +75,7 @@ app.use(helmet({
 //       "http://localhost:8000",
 //       "https://custom-gpt-backend-sigma.vercel.app",
 //       "https://admin-customchatbot-app.vercel.app",
-//       "https://custom-gpt-builder-frontend.vercel.app",
+//       "https://techrecto.com",
 //       "https://accounts.google.com",
 //     ];
 //     console.log(`CORS Origin: ${origin}`);

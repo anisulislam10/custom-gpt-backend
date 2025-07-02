@@ -54,7 +54,7 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     // Send reset email
-    const resetUrl = `https://custom-gpt-builder-frontend.vercel.app/reset-password?token=${resetToken}`;
+    const resetUrl = `https://techrecto.com/reset-password?token=${resetToken}`;
     await transporter.sendMail({
       to: email,
       subject: 'Password Reset Request',
@@ -246,7 +246,7 @@ router.post('/resend-verification', async (req, res) => {
     await user.save();
 
     // Send verification email
-    const verifyUrl = `https://custom-gpt-builder-frontend.vercel.app/verify-email?token=${verificationToken}`;
+    const verifyUrl = `https://techrecto.com/verify-email?token=${verificationToken}`;
     await transporter.sendMail({
       to: email,
       subject: 'Verify Your Email',

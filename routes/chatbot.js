@@ -72,6 +72,7 @@ router.get('/:flowId/:userId', async (req, res) => {
 //   }
 // }
 
+
     // Serve chatbot data
     res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://back.techrecto.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://back.techrecto.com");
 

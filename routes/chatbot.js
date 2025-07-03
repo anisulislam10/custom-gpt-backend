@@ -95,6 +95,7 @@ router.get('/:flowId/:userId', async (req, res) => {
   }
 });
 
+
 // GET /config.js - Serve configuration script
 router.get('/config.js', (req, res) => {
   console.log('[Chatbot] Serving config script');

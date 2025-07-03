@@ -123,6 +123,7 @@ router.get('/config.js', (req, res) => {
 // GET /script.js - Serve chatbot script
 
 
+
 router.get('/script.js', async (req, res) => {
   try {
     console.log('[Chatbot] Serving chatbot script');
@@ -1320,6 +1321,8 @@ router.get('/script.js', async (req, res) => {
     res.status(500).send('Error serving chatbot script');
   }
 });
+
+
 
 // POST /interactions - Save a complete interaction
 // POST /interactions - Save a complete interaction

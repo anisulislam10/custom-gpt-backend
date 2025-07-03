@@ -4,6 +4,7 @@ const SmtpConfig = require('../models/SmtpConfig'); // Import your model
 
 const router = express.Router();
 
+
 router.use(express.json());
 
 router.post('/send-email', async (req, res) => {

@@ -73,7 +73,7 @@ router.get('/:flowId/:userId', async (req, res) => {
 // }
 
     // Serve chatbot data
-    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://back.techrecto.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://back.techrecto.com");
+    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' http://localhost:5000; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' http://localhost:5000");
 
     res.send(`
       <!DOCTYPE html>
@@ -121,6 +121,8 @@ router.get('/config.js', (req, res) => {
 });
 
 // GET /script.js - Serve chatbot script
+
+
 router.get('/script.js', async (req, res) => {
   try {
     console.log('[Chatbot] Serving chatbot script');
@@ -221,7 +223,6 @@ router.get('/script.js', async (req, res) => {
                     border-radius: 8px;
                     padding: 8px;
                     cursor: pointer;
-                    display: none;
                     transition: background 0.2s;
                   ">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -298,8 +299,7 @@ router.get('/script.js', async (req, res) => {
                       background: rgba(255, 255, 255, 0.7);
                       color: \${config.theme?.text || '#1f2937'};
                       font-size: 15px;
-                      transition: border併
-                      border-color: 0.2s, box-shadow: 0.2s;
+                      transition: border-color 0.2s, box-shadow 0.2s;
                     "
                     onfocus="this.style.borderColor='\${config.theme?.primary || '#6366f1'}'; this.style.boxShadow='0 0 0 3px rgba(99, 102, 241, 0.1)'"
                     onblur="this.style.borderColor='rgba(209, 213, 219, 0.5)'; this.style.boxShadow='none'"
@@ -324,12 +324,12 @@ router.get('/script.js', async (req, res) => {
                     "
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M5 12h [];M5 12l6-6m-6 6l6 6"/>
+                      <path d="M5 12h14M5 12l6-6m-6 6l6 6"/>
                     </svg>
                   </button>
                 </form>
               </div>
- entreprene </div>
+            </div>
           \`;
 
           // Add floating toggle button
@@ -555,7 +555,6 @@ router.get('/script.js', async (req, res) => {
             console.log('[Chatbot] updateResponsiveStyles called, isChatbotOpen:', isChatbotOpen);
             const closeChat = container.querySelector('#close-chat');
             if (window.innerWidth <= 480) {
-              closeChat.style.display = isChatbotOpen ? 'block' : 'none';
               if (isChatbotOpen) {
                 chatbotWrapper.style.width = '100vw';
                 chatbotWrapper.style.height = '100vh';
@@ -573,7 +572,6 @@ router.get('/script.js', async (req, res) => {
                 setClosedState();
               }
             } else {
-              closeChat.style.display = 'none';
               if (isChatbotOpen) {
                 chatbotWrapper.style.width = '400px';
                 chatbotWrapper.style.height = '600px';
@@ -699,7 +697,7 @@ router.get('/script.js', async (req, res) => {
           let isTyping = false;
           let flowName = '';
 
-          const fetchUrl = \`https://back.techrecto.com/api/flow/\${config.userId}/\${config.flowId}\`;
+          const fetchUrl = \`http://localhost:5000/api/flow/\${config.userId}/\${config.flowId}\`;
           console.log('[Chatbot] Fetching flow from:', fetchUrl);
           fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
             .then((response) => {
@@ -1106,7 +1104,7 @@ router.get('/script.js', async (req, res) => {
                   }
 
                   try {
-                    const response = await fetch('https://back.techrecto.com/api/chatbot/form-responses', {
+                    const response = await fetch('http://localhost:5000/api/chatbot/form-responses', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -1161,7 +1159,7 @@ router.get('/script.js', async (req, res) => {
                     currentNodeId = nextNode.id;
                     chatHistory.push({ node: nextNode, userInput: null });
 
-                    fetch('https://back.techrecto.com/api/chatbot/interactions', {
+                    fetch('http://localhost:5000/api/chatbot/interactions', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -1314,7 +1312,9 @@ router.get('/script.js', async (req, res) => {
       };
     `;
     res.set('Content-Type', 'application/javascript');
-    res.send(script);
+    res.send(script)
+
+
   } catch (error) {
     console.error('[Chatbot] Error serving chatbot script:', error);
     res.status(500).send('Error serving chatbot script');

@@ -26,7 +26,7 @@ window.initChatbot = function () {
       return;
     }
 
-    // Initialize chatbot UI with glassmorphism
+    // Initialize chatbot UI with glassmorphism, explicitly hidden initially
     container.innerHTML = `
       <div class="chatbot-wrapper" style="
         background: rgba(255, 255, 255, 0.9);
@@ -34,13 +34,18 @@ window.initChatbot = function () {
         color: ${config.theme?.text || '#1f2937'};
         border-radius: 16px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.2);
-        display: flex;
+        display: none; /* Explicitly hide initially */
         flex-direction: column;
         height: 100%;
         font-family: Manrope, sans-serif;
         overflow: hidden;
-        display: none;
         transition: opacity 0.3s ease, transform 0.3s ease;
+        position: fixed;
+        width: 400px;
+        height: 600px;
+        bottom: 90px;
+        right: 20px;
+        z-index: 999;
       ">
         <div class="chatbot-header" style="
           background: ${config.theme?.primary || '#6366f1'};
@@ -208,6 +213,7 @@ window.initChatbot = function () {
 
     // Add floating toggle button
     const toggleIcon = document.createElement('button');
+    toggleIcon.id = 'chatbot-toggle'; // Ensure ID is set for debugging
     toggleIcon.innerHTML = `
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
         <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
@@ -215,6 +221,7 @@ window.initChatbot = function () {
     `;
     toggleIcon.setAttribute('aria-label', 'Toggle assistant');
     toggleIcon.setAttribute('tabindex', '0');
+    toggleIcon.className = 'chatbot-toggle-visible'; // Add class for visibility
     toggleIcon.style.cssText = `
       position: fixed;
       bottom: 20px;
@@ -231,6 +238,8 @@ window.initChatbot = function () {
       justify-content: center;
       z-index: 1000;
       transition: transform 0.2s, box-shadow 0.2s;
+      opacity: 1;
+      pointer-events: auto;
     `;
     toggleIcon.addEventListener('mouseover', () => {
       toggleIcon.style.transform = 'scale(1.1)';
@@ -241,7 +250,9 @@ window.initChatbot = function () {
       toggleIcon.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
     });
     toggleIcon.addEventListener('click', () => {
+      const chatbotWrapper = container.querySelector('.chatbot-wrapper');
       const isHidden = chatbotWrapper.style.display === 'none' || !chatbotWrapper.style.display;
+      console.log('[Chatbot] Toggle clicked, current state:', { isHidden });
       chatbotWrapper.style.display = isHidden ? 'flex' : 'none';
       if (isHidden) {
         chatbotWrapper.style.opacity = '0';
@@ -254,6 +265,15 @@ window.initChatbot = function () {
           }
         }, 10);
       }
+      console.log('[Chatbot] Toggle state after click:', {
+        id: 'chatbot-toggle',
+        inDOM: !!document.getElementById('chatbot-toggle'),
+        classes: toggleIcon.className,
+        display: toggleIcon.style.display || 'flex',
+        pointerEvents: toggleIcon.style.pointerEvents || 'auto',
+        opacity: toggleIcon.style.opacity || '1',
+        isChatbotOpen: chatbotWrapper.style.display !== 'none'
+      });
     });
     toggleIcon.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -264,12 +284,10 @@ window.initChatbot = function () {
     document.body.appendChild(toggleIcon);
 
     const chatbotWrapper = container.querySelector('.chatbot-wrapper');
-    chatbotWrapper.style.position = 'fixed';
-    chatbotWrapper.style.width = '400px';
-    chatbotWrapper.style.height = '600px';
-    chatbotWrapper.style.bottom = '90px';
-    chatbotWrapper.style.right = '20px';
-    chatbotWrapper.style.zIndex = '999';
+    // Ensure wrapper is hidden initially
+    chatbotWrapper.style.display = 'none';
+    chatbotWrapper.style.opacity = '0';
+    chatbotWrapper.style.transform = 'translateY(20px)';
 
     // Theme toggle logic
     let isDarkMode = false;
@@ -287,7 +305,16 @@ window.initChatbot = function () {
     // Close button logic for mobile
     const closeChat = container.querySelector('#close-chat');
     closeChat.addEventListener('click', () => {
+      console.log('[Chatbot] Close button clicked');
       chatbotWrapper.style.display = 'none';
+      console.log('[Chatbot] Close button clicked, toggle restored:', {
+        inDOM: !!document.getElementById('chatbot-toggle'),
+        classes: toggleIcon.className,
+        display: toggleIcon.style.display || 'flex',
+        pointerEvents: toggleIcon.style.pointerEvents || 'auto',
+        opacity: toggleIcon.style.opacity || '1',
+        isChatbotOpen: chatbotWrapper.style.display !== 'none'
+      });
     });
     closeChat.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -296,6 +323,33 @@ window.initChatbot = function () {
       }
     });
 
+    // Debug mousemove to track toggle state
+    document.addEventListener('mousemove', (e) => {
+      const elements = document.elementsFromPoint(e.clientX, e.clientY);
+      console.log('[Chatbot] Elements under cursor:', elements);
+      const toggleState = {
+        id: 'chatbot-toggle',
+        inDOM: !!document.getElementById('chatbot-toggle'),
+        classes: toggleIcon.className,
+        display: toggleIcon.style.display || 'not in DOM',
+        pointerEvents: toggleIcon.style.pointerEvents || 'not in DOM',
+        opacity: toggleIcon.style.opacity || 'not in DOM',
+        isChatbotOpen: chatbotWrapper.style.display !== 'none'
+      };
+      console.log('[Chatbot] Toggle state on mousemove:', toggleState);
+      if (toggleState.inDOM && !toggleState.isChatbotOpen && toggleState.display === 'none') {
+        console.log('[Chatbot] Toggle unexpectedly hidden, restoring...');
+        toggleIcon.style.display = 'flex';
+        toggleIcon.style.opacity = '1';
+        toggleIcon.style.pointerEvents = 'auto';
+      }
+      if (toggleState.inDOM && toggleState.isChatbotOpen && toggleState.display !== 'none') {
+        console.log('[Chatbot] Hiding toggle while chatbot is open');
+        toggleIcon.style.display = 'none';
+      }
+    });
+
+    // Rest of the code (fetch, renderChat, handleInteraction, etc.) remains unchanged
     if (!config.userId || !config.flowId) {
       console.error('[Chatbot] Error: userId or flowId missing in ChatbotConfig');
       container.querySelector('.chatbot-messages').innerHTML = `
@@ -316,7 +370,7 @@ window.initChatbot = function () {
             padding: 10px 20px;
             border-radius: 10px;
             border: none;
-            cursor: pointer;
+            cursor: puse;
             margin-top: 12px;
             font-size: 14px;
             font-weight: 500;
@@ -330,7 +384,6 @@ window.initChatbot = function () {
       `;
       return;
     }
-    
 
     let currentNodeId = null;
     let chatHistory = [];
@@ -803,6 +856,16 @@ window.initChatbot = function () {
           transform: none !important;
           box-shadow: none !important;
         }
+      }
+      .chatbot-toggle-visible {
+        display: flex !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+      }
+      .chatbot-toggle-hidden {
+        display: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
       }
     `;
     document.head.appendChild(styleSheet);

@@ -1,8 +1,56 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
+const SmtpConfig = require('../models/smtpConfig'); // Import your model
 
 const router = express.Router();
-const SmtpConfig = require('../models/SmtpConfig'); // Adjust the path as necessary
+
+router.use(express.json());
+
+router.post('/send-email', async (req, res) => {
+  const { userId, to, subject, html } = req.body;
+
+  // Basic input validation
+  if (!userId || !to || !subject || !html) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    // Fetch SMTP config from database
+    const smtpConfig = await SmtpConfig.findOne({ userId });
+    if (!smtpConfig || !smtpConfig.host || !smtpConfig.port || !smtpConfig.username) {
+      return res.status(404).json({ error: 'SMTP configuration not found for user' });
+    }
+
+    // Create a Nodemailer transporter
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig.host,
+      port: parseInt(smtpConfig.port),
+      secure: smtpConfig.secure === true || smtpConfig.secure === 'true',
+      auth: {
+        user: smtpConfig.username,
+        pass: smtpConfig.password,
+      },
+      connectionTimeout: 10000,
+    });
+
+    // Send email
+    const mailOptions = {
+      from: smtpConfig.username,
+      to:smtpConfig.username,
+      subject,
+      html,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log('[Backend] Email sent successfully to:', to); // Replace with proper logging
+    res.status(200).json({ message: 'Email sent successfully' });
+  } catch (error) {
+    console.error('[Backend] Failed to send email:', error); // Replace with proper logging
+    res.status(500).json({ error: 'Failed to send email. Please check your SMTP configuration.' });
+  }
+});
+
+// 
 
 router.post('/send-test-email', async (req, res) => {
   const { host, port, username, password, secure } = req.body;

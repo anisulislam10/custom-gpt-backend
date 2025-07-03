@@ -127,12 +127,41 @@ router.get('/config.js', (req, res) => {
 // GET /script.js - Serve chatbot script
 
 
-
 router.get('/script.js', async (req, res) => {
   try {
     console.log('[Chatbot] Serving chatbot script');
-    
+
     const script = `
+      // Safe condition evaluation function to replace eval
+      const safeEvaluateCondition = (condition, userInput) => {
+        try {
+          // Simple condition parser (extend as needed)
+          const cleanCondition = condition.replace(/user_input/g, JSON.stringify(userInput));
+          // Basic comparison operators support
+          const operators = {
+            '==': (a, b) => a == b,
+            '===': (a, b) => a === b,
+            '!=': (a, b) => a != b,
+            '!==': (a, b) => a !== b,
+            '>': (a, b) => a > b,
+            '<': (a, b) => a < b,
+            '>=': (a, b) => a >= b,
+            '<=': (a, b) => a <= b,
+          };
+          const match = cleanCondition.match(/(.+?)(==|===|!=|!==|>|<|>=|<=)(.+)/);
+          if (match) {
+            const [, left, op, right] = match;
+            const leftValue = JSON.parse(left.trim());
+            const rightValue = JSON.parse(right.trim());
+            return operators[op](leftValue, rightValue);
+          }
+          return false; // Default to false if condition is invalid
+        } catch (error) {
+          console.error('[Chatbot] Error in safeEvaluateCondition:', error.message);
+          return false;
+        }
+      };
+
       window.initChatbot = function () {
         console.log('[Chatbot] Initializing chatbot');
         
@@ -393,6 +422,7 @@ router.get('/script.js', async (req, res) => {
             }
 
             let isChatbotOpen = false;
+            let isDarkMode = false;
             const chatbotWrapper = container.querySelector('#chatbot-wrapper');
 
             // Explicitly ensure chatbot is closed initially
@@ -517,7 +547,6 @@ router.get('/script.js', async (req, res) => {
             });
 
             // Theme toggle logic
-            let isDarkMode = false;
             const themeToggle = container.querySelector('#theme-toggle');
             themeToggle.addEventListener('click', () => {
               isDarkMode = !isDarkMode;
@@ -556,7 +585,6 @@ router.get('/script.js', async (req, res) => {
             // Responsive styles
             const updateResponsiveStyles = () => {
               console.log('[Chatbot] updateResponsiveStyles called, isChatbotOpen:', isChatbotOpen);
-              const closeChat = container.querySelector('#close-chat');
               if (window.innerWidth <= 480) {
                 if (isChatbotOpen) {
                   chatbotWrapper.style.width = '100vw';
@@ -670,7 +698,6 @@ router.get('/script.js', async (req, res) => {
                   </button>
                 </div>
               \`;
-              
               return;
             }
 
@@ -678,6 +705,8 @@ router.get('/script.js', async (req, res) => {
             let chatHistory = [];
             let isTyping = false;
             let flowName = '';
+            let nodes = [];
+            let edges = [];
 
             const fetchUrl = \`https://back.techrecto.com/api/flow/\${config.userId}/\${config.flowId}\`;
             console.log('[Chatbot] Fetching flow from:', fetchUrl);
@@ -695,7 +724,8 @@ router.get('/script.js', async (req, res) => {
                   throw new Error('Invalid flow data: nodes or edges missing');
                 }
                 flowName = flow.name || 'Unnamed Flow';
-                const { nodes, edges } = flow;
+                nodes = flow.nodes;
+                edges = flow.edges;
 
                 const incomingEdges = edges.reduce((acc, edge) => {
                   acc[edge.target] = true;
@@ -707,482 +737,11 @@ router.get('/script.js', async (req, res) => {
                 }
                 currentNodeId = startNode.id;
                 chatHistory = [{ node: startNode, userInput: null }];
-
-                const renderChat = () => {
-                  const messages = container.querySelector('.chatbot-messages');
-                  const inputWrapper = container.querySelector('.chatbot-input');
-                  const currentNode = nodes.find((n) => n.id === currentNodeId);
-
-                  inputWrapper.style.display = (currentNode?.type === 'singleInput' || currentNode?.type === 'aiinput') ? 'block' : 'none';
-                  if (currentNode?.type === 'singleInput' || currentNode?.type === 'aiinput') {
-                    const input = inputWrapper.querySelector('input');
-                    input.placeholder = currentNode?.type === 'aiinput' ? (currentNode.data.placeholder || 'Type your message...') : 'Enter your message';
-                  }
-
-                  messages.innerHTML = chatHistory
-                    .map((entry, index) => {
-                      const { node, userInput } = entry;
-                      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                      let html = '';
-
-                      if (node.type === 'text') {
-                        html += \`
-                          <div class="message bot-message" style="
-                            background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-                            backdrop-filter: blur(5px);
-                            color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                            padding: 12px 16px;
-                            border-radius: 12px 12px 12px 4px;
-                            max-width: 75%;
-                            align-self: flex-start;
-                            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                            animation: slide-in 0.3s ease;
-                          ">
-                            <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'No message'}</p>
-                            <span style="
-                              font-size: 12px;
-                              color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
-                              opacity: 0.6;
-                              margin-top: 4px;
-                              display: block;
-                            ">\${timestamp}</span>
-                          </div>
-                        \`;
-                      } else if (node.type === 'custom' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
-                        html += \`
-                          <div class="message bot-message" style="
-                            background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-                            backdrop-filter: blur(5px);
-                            color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                            padding: 12px 16px;
-                            border-radius: 12px 12px 12px 4px;
-                            max-width: 75%;
-                            align-self: flex-start;
-                            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                            animation: slide-in 0.3s ease;
-                          ">
-                            <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'Please select an option'}</p>
-                            \${userInput ? '' : \`
-                              <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
-                                \${node.data.options
-                                  .map(
-                                    (opt, i) => \`
-                                      <button
-                                        data-option-index="\${i}"
-                                        style="
-                                          background: \${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'};
-                                          backdrop-filter: blur(5px);
-                                          color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                                          padding: 10px 20px;
-                                          border-radius: 8px;
-                                          border: none;
-                                          cursor: pointer;
-                                          font-size: 14px;
-                                          font-weight: 500;
-                                          transition: background 0.2s;
-                                        "
-                                        onmouseover="this.style.background='\${isDarkMode ? 'rgba(107, 114, 128, 0.9)' : 'rgba(209, 213, 219, 0.9)'}'"
-                                        onmouseout="this.style.background='\${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'}'"
-                                      >
-                                        \${opt}
-                                      </button>
-                                    \`
-                                  )
-                                  .join('')}
-                              </div>
-                            \`}
-                            <span style="
-                              font-size: 12px;
-                              color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
-                              opacity: 0.6;
-                              margin-top: 8px;
-                              display: block;
-                            ">\${timestamp}</span>
-                          </div>
-                        \`;
-                      } else if (node.type === 'form' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
-                        html += \`
-                          <div class="message bot-message" style="
-                            background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-                            backdrop-filter: blur(5px);
-                            color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                            padding: 12px 16px;
-                            border-radius: 12px 12px 12px 4px;
-                            max-width: 75%;
-                            align-self: flex-start;
-                            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                            animation: slide-in 0.3s ease;
-                          ">
-                            <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'Please fill out the form'}</p>
-                            \${userInput ? '' : \`
-                              <form id="chatbot-form-\${node.id}" style="margin-top: 12px;">
-                                \${node.data.fields
-                                  .map(
-                                    (field) => \`
-                                      <div style="margin-bottom: 10px;">
-                                        <input
-                                          name="\${field.key || field.label}"
-                                          type="\${field.type}"
-                                          placeholder="\${field.label}"
-                                          style="
-                                            width: 100%;
-                                            padding: 10px 12px;
-                                            border: 1px solid \${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'};
-                                            border-radius: 8px;
-                                            background: \${isDarkMode ? 'rgba(75, 85, 99, 0.7)' : 'rgba(255, 255, 255, 0.7)'};
-                                            backdrop-filter: blur(5px);
-                                            color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                                            font-size: 14px;
-                                            transition: border-color 0.2s, box-shadow: 0.2s;
-                                          "
-                                          onfocus="this.style.borderColor='\${config.theme?.primary || '#6366f1'}'; this.style.boxShadow='0 0 0 3px rgba(99, 102, 241, 0.1)'"
-                                          onblur="this.style.borderColor='\${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'}'; this.style.boxShadow='none'"
-                                          \${field.required ? 'required' : ''}
-                                          aria-label="\${field.label}"
-                                          \${field.key === 'email' ? 'pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\\\.[a-z]{2,}$"' : ''}
-                                        />
-                                      </div>
-                                    \`
-                                  )
-                                  .join('')}
-                                <button
-                                  type="submit"
-                                  style="
-                                    background: \${config.theme?.primary || '#6366f1'};
-                                    color: #ffffff;
-                                    padding: 10px 20px;
-                                    border-radius: 8px;
-                                    border: none;
-                                    cursor: pointer;
-                                    font-size: 14px;
-                                    font-weight: 500;
-                                    width: 100%;
-                                    transition: background 0.2s;
-                                  "
-                                  onmouseover="this.style.background='\${config.theme?.secondary || '#4f46e5'}'"
-                                  onmouseout="this.style.background='\${config.theme?.primary || '#6366f1'}'"
-                                >
-                                  Submit
-                                </button>
-                              </form>
-                            \`}
-                            <span style="
-                              font-size: 12px;
-                              color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
-                              opacity: 0.6;
-                              margin-top: 8px;
-                              display: block;
-                            ">\${timestamp}</span>
-                          </div>
-                        \`;
-                      } else if ((node.type === 'singleInput' || node.type === 'aiinput') && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
-                        html += \`
-                          <div class="message bot-message" style="
-                            background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-                            backdrop-filter: blur(5px);
-                            color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                            padding: 12px 16px;
-                            border-radius: 12px 12px 12px 4px;
-                            max-width: 75%;
-                            align-self: flex-start;
-                            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                            animation: slide-in 0. ######s ease;
-                          ">
-                            <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || (node.type === 'aiinput' ? 'Assistant' : 'Please enter your response')}</p>
-                            <span style="
-                              font-size: 12px;
-                              color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
-                              opacity: 0.6;
-                              margin-top: 4px;
-                              display: block;
-                            ">\${timestamp}</span>
-                          </div>
-                        \`;
-                      }
-
-                      if (userInput) {
-                        html += \`
-                          <div class="message user-message" style="
-                            background: \${config.theme?.primary || '#6366f1'};
-                            color: #ffffff;
-                            padding: 12px 16px;
-                            border-radius: 12px 12px 4px 12px;
-                            max-width: 75%;
-                            align-self: flex-end;
-                            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                            animation: slide-in 0.3s ease;
-                          ">
-                            \${typeof userInput === 'object'
-                              ? \`<pre style="margin: 0; font-size: 14px; font-weight: 400;">\${JSON.stringify(userInput, null, 2)}</pre>\`
-                              : \`<p style="margin: 0; font-size: 15px; font-weight: 400;">\${userInput}</p>\`
-                            }
-                            <span style="
-                              font-size: 12px;
-                              color: #ffffff;
-                              opacity: 0.6;
-                              margin-top: 4px;
-                              display: block;
-                            ">\${timestamp}</span>
-                          </div>
-                        \`;
-                      }
-
-                      return html;
-                    })
-                    .join('');
-
-                  if (currentNodeId && currentNode?.type !== 'singleInput' && currentNode?.type !== 'aiinput' && isTyping) {
-                    messages.innerHTML += \`
-                      <div class="typing-indicator" style="
-                        display: flex;
-                        gap: 8px;
-                        padding: 12px;
-                        align-self: flex-start;
-                        opacity: 0;
-                        animation: fade-in 0.3s ease forwards;
-                      ">
-                        <span style="
-                          width: 10px;
-                          height: 10px;
-                          background: \${config.theme?.primary || '#6366f1'};
-                          border-radius: 50%;
-                          animation: typing 0.8s infinite;
-                        "></span>
-                        <span style="
-                          width: 10px;
-                          height: 10px;
-                          background: \${config.theme?.primary || '#6366f1'};
-                          border-radius: 50%;
-                          animation: typing 0.8s infinite 0.2s;
-                        "></span>
-                        <span style="
-                          width: 10px;
-                          height: 10px;
-                          background: \${config.theme?.primary || '#6366f1'};
-                          border-radius: 50%;
-                          animation: typing 0.8s infinite 0.4s;
-                        "></span>
-                      </div>
-                    \`;
-                  }
-
-                  messages.scrollTop = messages.scrollHeight;
-
-                  container.querySelectorAll('button[data-option-index]').forEach((btn) => {
-                    btn.addEventListener('click', () => {
-                      const optionIndex = btn.getAttribute('data-option-index');
-                      const option = btn.textContent;
-                      isTyping = true;
-                      handleInteraction(currentNodeId, option, parseInt(optionIndex));
-                    });
-                  });
-
-                  container.querySelectorAll('form[id^="chatbot-form-"]').forEach((form) => {
-                    form.addEventListener('submit', (e) => {
-                      e.preventDefault();
-                      const formData = new FormData(form);
-                      const data = Object.fromEntries(formData);
-                      const email = data.email || config.userEmail;
-                      if (email && !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email)) {
-                        messages.innerHTML += \`
-                          <div style="
-                            padding: 12px 16px;
-                            background: rgba(255, 0, 0, 0.1);
-                            color: #d32f2f;
-                            border-radius: 12px;
-                            max-width: 75%;
-                            align-self: flex-start;
-                            margin-top: 16px;
-                            font-size: 14px;
-                          ">
-                            Please enter a valid email address.
-                          </div>
-                        \`;
-                        messages.scrollTop = messages.scrollHeight;
-                        isTyping = false;
-                        return;
-                      }
-                      isTyping = true;
-                      handleInteraction(currentNodeId, data);
-                    });
-                  });
-
-                  const bottomInputForm = container.querySelector('#chatbot-bottom-input');
-                  if (bottomInputForm) {
-                    bottomInputForm.addEventListener('submit', (e) => {
-                      e.preventDefault();
-                      const formData = new FormData(bottomInputForm);
-                      const data = Object.fromEntries(formData);
-                      isTyping = true;
-                      handleInteraction(currentNodeId, data.message);
-                      bottomInputForm.reset();
-                    });
-                  }
-
-                  container.querySelector('#reset-chat')?.addEventListener('click', () => {
-                    const incomingEdges = edges.reduce((acc, edge) => {
-                      acc[edge.target] = true;
-                      return acc;
-                    }, {});
-                    const startNode = nodes.find((node) => !incomingEdges[node.id]) || nodes[0];
-                    if (startNode) {
-                      currentNodeId = startNode.id;
-                      chatHistory = [{ node: startNode, userInput: null }];
-                      isTyping = false;
-                      autoAdvanceTextNodes();
-                      requestAnimationFrame(renderChat);
-                    }
-                  });
-                };
-
-                const autoAdvanceTextNodes = () => {
-                  let current = nodes.find((n) => n.id === currentNodeId);
-                  while (current && current.type === 'text' && !chatHistory.find((h) => h.node.id === current.id && h.userInput)) {
-                    const nextEdge = edges.find((edge) => edge.source === current.id);
-                    if (!nextEdge) break;
-                    const nextNode = nodes.find((n) => n.id === nextEdge.target);
-                    if (!nextNode) break;
-                    currentNodeId = nextNode.id;
-                    chatHistory.push({ node: nextNode, userInput: null });
-                    current = nextNode;
-                  }
-                  requestAnimationFrame(renderChat);
-                };
-
-                const handleInteraction = async (nodeId, userInput, optionIndex = null) => {
-                  console.log('[Chatbot] Interaction:', { nodeId, userInput, optionIndex });
-                  const currentNode = nodes.find((n) => n.id === nodeId);
-
-                  const currentHistoryEntry = chatHistory.find((h) => h.node.id === nodeId && !h.userInput);
-                  if (currentHistoryEntry) {
-                    currentHistoryEntry.userInput = userInput;
-                  } else {
-                    chatHistory.push({ node: currentNode, userInput });
-                  }
-
-                  requestAnimationFrame(renderChat);
-
-                  if (currentNode.type === 'form') {
-                    const email = userInput.email || config.userEmail;
-                    if (!email) {
-                      const messages = container.querySelector('.chatbot-messages');
-                      messages.innerHTML += \`
-                        <div style="
-                          padding: 12px 16px;
-                          background: rgba(255, 0, 0, 0.1);
-                          color: #d32f2f;
-                          border-radius: 12px;
-                          max-width: 75%;
-                          align-self: flex-start;
-                          margin-top: 16px;
-                          font-size: 14px;
-                        ">
-                          Email is required to submit the form.
-                        </div>
-                      \`;
-                      messages.scrollTop = messages.scrollHeight;
-                      isTyping = false;
-                      return;
-                    }
-
-                    try {
-                      const response = await fetch('https://back.techrecto.com/api/chatbot/form-responses', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          userEmail: email,
-                          formId: nodeId,
-                          formName: flowName || 'Unnamed Form',
-                          flowId: config.flowId,
-                          userId: config.userId,
-                          date: new Date().toISOString().split('T')[0],
-                          submitDate: new Date().toISOString(),
-                          response: userInput
-                        })
-                      });
-                      if (!response.ok) {
-                        throw new Error(\`Failed to save form response: \${response.statusText}\`);
-                      }
-                      console.log('[Chatbot] Form response saved:', { userEmail: email, formId: nodeId, response: userInput });
-                    } catch (error) {
-                      console.error('[Chatbot] Error saving form response:', error.message);
-                      const messages = container.querySelector('.chatbot-messages');
-                      messages.innerHTML += \`
-                        <div style="
-                          padding: 12px 16px;
-                          background: rgba(255, 0, 0, 0.1);
-                          color: #d32f2f;
-                          border-radius: 12px;
-                          max-width: 75%;
-                          align-self: flex-start;
-                          margin-top: 16px;
-                          font-size: 14px;
-                        ">
-                          Failed to submit form. Please try again.
-                        </div>
-                      \`;
-                      messages.scrollTop = messages.scrollHeight;
-                      isTyping = false;
-                      return;
-                    }
-                  }
-
-                  let nextEdge = null;
-                  if (currentNode.type === 'custom' && optionIndex !== null) {
-                    const sourceHandle = \`option-\${optionIndex}\`;
-                    nextEdge = edges.find((edge) => edge.source === nodeId && edge.sourceHandle === sourceHandle);
-                  } else {
-                    nextEdge = edges.find((edge) => edge.source === nodeId);
-                  }
-
-                  if (nextEdge) {
-                    const nextNode = nodes.find((n) => n.id === nextEdge.target);
-                    if (nextNode) {
-                      currentNodeId = nextNode.id;
-                      chatHistory.push({ node: nextNode, userInput: null });
-
-                      fetch('https://back.techrecto.com/api/chatbot/interactions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          userId: config.userId,
-                          flowId: config.flowId,
-                          nodeId: nextNode.id,
-                          userInput: userInput || null,
-                          botResponse: nextNode.data.label || 'Bot response',
-                          date: new Date().toISOString().split('T')[0]
-                        })
-                      })
-                        .then((response) => {
-                          if (!response.ok) {
-                            throw new Error(\`Failed to save interaction: \${response.statusText}\`);
-                          }
-                          console.log('[Chatbot] Interaction saved:', { userInput, botResponse: nextNode.data.label || 'Bot response' });
-                        })
-                        .catch((error) => {
-                          console.error('[Chatbot] Error saving interaction:', error.message);
-                        });
-
-                      setTimeout(() => {
-                        isTyping = false;
-                        autoAdvanceTextNodes();
-                      }, 300);
-                    } else {
-                      console.error('[Chatbot] Error: Next node not found for edge:', nextEdge);
-                      isTyping = false;
-                      requestAnimationFrame(renderChat);
-                    }
-                  } else {
-                    console.warn('[Chatbot] No next edge found for node:', nodeId);
-                    isTyping = false;
-                    requestAnimationFrame(renderChat);
-                  }
-                };
-
+                isTyping = true;
                 autoAdvanceTextNodes();
               })
               .catch((error) => {
-                console.error('[Chatbot] Failed to load chatbot:', error);
+                console.error('[Chatbot] Error fetching flow:', error.message);
                 container.innerHTML = \`
                   <div style="
                     padding: 24px;
@@ -1198,7 +757,7 @@ router.get('/script.js', async (req, res) => {
                     right: 20px;
                     z-index: 9999;
                   ">
-                    <p style="font-size: 16px; font-weight: 600; margin: 0;">Error loading assistant: \${error.message}</p>
+                    <p style="font-size: 16px; font-weight: 600; margin: 0;">Error loading flow</p>
                     <button onclick="window.initChatbot()" style="
                       background: \${config.theme?.primary || '#6366f1'};
                       color: #ffffff;
@@ -1218,6 +777,635 @@ router.get('/script.js', async (req, res) => {
                   </div>
                 \`;
               });
+
+            const renderChat = () => {
+              const messages = container.querySelector('.chatbot-messages');
+              const inputWrapper = container.querySelector('.chatbot-input');
+              const currentNode = nodes.find((n) => n.id === currentNodeId);
+
+              inputWrapper.style.display = (currentNode?.type === 'singleInput' || currentNode?.type === 'aiinput') ? 'block' : 'none';
+              if (currentNode?.type === 'singleInput' || currentNode?.type === 'aiinput') {
+                const input = inputWrapper.querySelector('input');
+                input.placeholder = currentNode?.type === 'aiinput' ? (currentNode.data.placeholder || 'Type your message...') : 'Enter your message';
+              }
+
+              messages.innerHTML = chatHistory
+                .map((entry, index) => {
+                  const { node, userInput } = entry;
+                  const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  let html = '';
+
+                  if (node.type === 'text') {
+                    html += \`
+                      <div class="message bot-message" style="
+                        background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+                        backdrop-filter: blur(5px);
+                        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                        padding: 12px 16px;
+                        border-radius: 12px 12px 12px 4px;
+                        max-width: 75%;
+                        align-self: flex-start;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                        animation: slide-in 0.3s ease;
+                      ">
+                        <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'No message'}</p>
+                        <span style="
+                          font-size: 12px;
+                          color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+                          opacity: 0.6;
+                          margin-top: 4px;
+                          display: block;
+                        ">\${timestamp}</span>
+                      </div>
+                    \`;
+                  } else if (node.type === 'custom' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
+                    html += \`
+                      <div class="message bot-message" style="
+                        background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+                        backdrop-filter: blur(5px);
+                        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                        padding: 12px 16px;
+                        border-radius: 12px 12px 12px 4px;
+                        max-width: 75%;
+                        align-self: flex-start;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                        animation: slide-in 0.3s ease;
+                      ">
+                        <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'Please select an option'}</p>
+                        \${userInput ? '' : \`
+                          <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                            \${node.data.options
+                              .map(
+                                (opt, i) => \`
+                                  <button
+                                    data-option-index="\${i}"
+                                    style="
+                                      background: \${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'};
+                                      backdrop-filter: blur(5px);
+                                      color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                                      padding: 10px 20px;
+                                      border-radius: 8px;
+                                      border: none;
+                                      cursor: pointer;
+                                      font-size: 14px;
+                                      font-weight: 500;
+                                      transition: background 0.2s;
+                                    "
+                                    onmouseover="this.style.background='\${isDarkMode ? 'rgba(107, 114, 128, 0.9)' : 'rgba(209, 213, 219, 0.9)'}'"
+                                    onmouseout="this.style.background='\${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'}'"
+                                  >
+                                    \${opt}
+                                  </button>
+                                \`
+                              )
+                              .join('')}
+                          </div>
+                        \`}
+                        <span style="
+                          font-size: 12px;
+                          color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+                          opacity: 0.6;
+                          margin-top: 8px;
+                          display: block;
+                        ">\${timestamp}</span>
+                      </div>
+                    \`;
+                  } else if (node.type === 'condition' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
+                    html += \`
+                      <div class="message bot-message" style="
+                        background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+                        backdrop-filter: blur(5px);
+                        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                        padding: 12px 16px;
+                        border-radius: 12px 12px 12px 4px;
+                        max-width: 75%;
+                        align-self: flex-start;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                        animation: slide-in 0.3s ease;
+                      ">
+                        <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'Evaluating condition...'}</p>
+                        <span style="
+                          font-size: 12px;
+                          color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+                          opacity: 0.6;
+                          margin-top: 4px;
+                          display: block;
+                        ">\${timestamp}</span>
+                      </div>
+                    \`;
+                  } else if (node.type === 'form' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
+                    html += \`
+                      <div class="message bot-message" style="
+                        background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+                        backdrop-filter: blur(5px);
+                        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                        padding: 12px 16px;
+                        border-radius: 12px 12px 12px 4px;
+                        max-width: 75%;
+                        align-self: flex-start;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                        animation: slide-in 0.3s ease;
+                      ">
+                        <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'Please fill out the form'}</p>
+                        \${userInput ? \`
+                          <div style="
+                            margin-top: 12px;
+                            padding: 12px;
+                            background: \${isDarkMode ? 'rgba(75, 85, 99, 0.7)' : 'rgba(229, 231, 235, 0.7)'};
+                            border-radius: 8px;
+                            border: 1px solid \${isDarkMode ? 'rgba(107, 114, 128, 0.5)' : 'rgba(209, 213, 219, 0.5)'};
+                          ">
+                            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Form Submission</h4>
+                            <ul style="list-style-type: none; padding: 0; font-size: 14px;">
+                              \${Object.entries(userInput)
+                                .map(([key, value]) => \`<li style="margin-bottom: 6px;"><strong>\${key}:</strong> \${value}</li>\`)
+                                .join('')}
+                            </ul>
+                          </div>
+                        \` : \`
+                          <form id="chatbot-form-\${node.id}" style="margin-top: 12px;">
+                            \${node.data.fields
+                              .map(
+                                (field) => \`
+                                  <div style="margin-bottom: 10px;">
+                                    <input
+                                      name="\${field.key || field.label}"
+                                      type="\${field.type}"
+                                      placeholder="\${field.label}"
+                                      style="
+                                        width: 100%;
+                                        padding: 10px 12px;
+                                        border: 1px solid \${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'};
+                                        border-radius: 8px;
+                                        background: \${isDarkMode ? 'rgba(75, 85, 99, 0.7)' : 'rgba(255, 255, 255, 0.7)'};
+                                        backdrop-filter: blur(5px);
+                                        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                                        font-size: 14px;
+                                        transition: border-color 0.2s, box-shadow: 0.2s;
+                                      "
+                                      onfocus="this.style.borderColor='\${config.theme?.primary || '#6366f1'}'; this.style.boxShadow='0 0 0 3px rgba(99, 102, 241, 0.1)'"
+                                      onblur="this.style.borderColor='\${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'}'; this.style.boxShadow='none'"
+                                      \${field.required ? 'required' : ''}
+                                      aria-label="\${field.label}"
+                                      \${field.key === 'email' ? 'pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\\\.[a-z]{2,}$"' : ''}
+                                    />
+                                  </div>
+                                \`
+                              )
+                              .join('')}
+                            <button
+                              type="submit"
+                              style="
+                                background: \${config.theme?.primary || '#6366f1'};
+                                color: #ffffff;
+                                padding: 10px 20px;
+                                border-radius: 8px;
+                                border: none;
+                                cursor: pointer;
+                                font-size: 14px;
+                                font-weight: 500;
+                                width: 100%;
+                                transition: background 0.2s;
+                              "
+                              onmouseover="this.style.background='\${config.theme?.secondary || '#4f46e5'}'"
+                              onmouseout="this.style.background='\${config.theme?.primary || '#6366f1'}'"
+                            >
+                              Submit
+                            </button>
+                          </form>
+                        \`}
+                        <span style="
+                          font-size: 12px;
+                          color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+                          opacity: 0.6;
+                          margin-top: 8px;
+                          display: block;
+                        ">\${timestamp}</span>
+                      </div>
+                    \`;
+                  } else if ((node.type === 'singleInput' || node.type === 'aiinput') && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
+                    html += \`
+                      <div class="message bot-message" style="
+                        background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+                        backdrop-filter: blur(5px);
+                        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                        padding: 12px 16px;
+                        border-radius: 12px 12px 12px 4px;
+                        max-width: 75%;
+                        align-self: flex-start;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                        animation: slide-in 0.3s ease;
+                      ">
+                        <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || (node.type === 'aiinput' ? 'Assistant' : 'Please enter your response')}</p>
+                        <span style="
+                          font-size: 12px;
+                          color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+                          opacity: 0.6;
+                          margin-top: 4px;
+                          display: block;
+                        ">\${timestamp}</span>
+                      </div>
+                    \`;
+                  }
+
+                  if (userInput) {
+                    html += \`
+                      <div class="message user-message" style="
+                        background: \${config.theme?.primary || '#6366f1'};
+                        color: #ffffff;
+                        padding: 12px 16px;
+                        border-radius: 12px 12px 4px 12px;
+                        max-width: 75%;
+                        align-self: flex-end;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                        animation: slide-in 0.3s ease;
+                      ">
+                        \${typeof userInput === 'object'
+                          ? \`<div style="
+                              padding: 12px;
+                              background: \${isDarkMode ? 'rgba(75, 85, 99, 0.7)' : 'rgba(229, 231, 235, 0.7)'};
+                              border-radius: 8px;
+                              border: 1px solid \${isDarkMode ? 'rgba(107, 114, 128, 0.5)' : 'rgba(209, 213, 219, 0.5)'};
+                            ">
+                              <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Your Submission</h4>
+                              <ul style="list-style-type: none; padding: 0; font-size: 14px;">
+                                \${Object.entries(userInput)
+                                  .map(([key, value]) => \`<li style="margin-bottom: 6px;"><strong>\${key}:</strong> \${value}</li>\`)
+                                  .join('')}
+                              </ul>
+                            </div>\`
+                          : \`<p style="margin: 0; font-size: 15px; font-weight: 400;">\${userInput}</p>\`
+                        }
+                        <span style="
+                          font-size: 12px;
+                          color: #ffffff;
+                          opacity: 0.6;
+                          margin-top: 4px;
+                          display: block;
+                        ">\${timestamp}</span>
+                      </div>
+                    \`;
+                  }
+
+                  return html;
+                })
+                .join('');
+
+              if (currentNodeId && currentNode?.type !== 'singleInput' && currentNode?.type !== 'aiinput' && isTyping) {
+                messages.innerHTML += \`
+                  <div class="typing-indicator" style="
+                    display: flex;
+                    gap: 8px;
+                    padding: 12px;
+                    align-self: flex-start;
+                    opacity: 0;
+                    animation: fade-in 0.3s ease forwards;
+                  ">
+                    <span style="
+                      width: 10px;
+                      height: 10px;
+                      background: \${config.theme?.primary || '#6366f1'};
+                      border-radius: 50%;
+                      animation: typing 0.8s infinite;
+                    "></span>
+                    <span style="
+                      width: 10px;
+                      height: 10px;
+                      background: \${config.theme?.primary || '#6366f1'};
+                      border-radius: 50%;
+                      animation: typing 0.8s infinite 0.2s;
+                    "></span>
+                    <span style="
+                      width: 10px;
+                      height: 10px;
+                      background: \${config.theme?.primary || '#6366f1'};
+                      border-radius: 50%;
+                      animation: typing 0.8s infinite 0.4s;
+                    "></span>
+                  </div>
+                \`;
+              }
+
+              messages.scrollTop = messages.scrollHeight;
+
+              // Event listeners for buttons and forms
+              container.querySelectorAll('button[data-option-index]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                  const optionIndex = btn.getAttribute('data-option-index');
+                  const option = btn.textContent;
+                  isTyping = true;
+                  handleInteraction(currentNodeId, option, parseInt(optionIndex));
+                });
+              });
+
+              container.querySelectorAll('form[id^="chatbot-form-"]').forEach((form) => {
+                form.addEventListener('submit', (e) => {
+                  e.preventDefault();
+                  const formData = new FormData(form);
+                  const data = Object.fromEntries(formData);
+                  const email = data.email || config.userEmail;
+                  if (email && !/^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$/i.test(email)) {
+                    messages.innerHTML += \`
+                      <div style="
+                        padding: 12px 16px;
+                        background: rgba(255, 0, 0, 0.1);
+                        color: #d32f2f;
+                        border-radius: 12px;
+                        max-width: 75%;
+                        align-self: flex-start;
+                        margin-top: 16px;
+                        font-size: 14px;
+                      ">
+                        Please enter a valid email address.
+                      </div>
+                    \`;
+                    messages.scrollTop = messages.scrollHeight;
+                    isTyping = false;
+                    return;
+                  }
+                  isTyping = true;
+                  handleInteraction(currentNodeId, data);
+                });
+              });
+
+              const bottomInputForm = container.querySelector('#chatbot-bottom-input');
+              if (bottomInputForm) {
+                bottomInputForm.addEventListener('submit', (e) => {
+                  e.preventDefault();
+                  const formData = new FormData(bottomInputForm);
+                  const data = Object.fromEntries(formData);
+                  isTyping = true;
+                  handleInteraction(currentNodeId, data.message);
+                  bottomInputForm.reset();
+                });
+              }
+
+              container.querySelector('#reset-chat')?.addEventListener('click', () => {
+                const incomingEdges = edges.reduce((acc, edge) => {
+                  acc[edge.target] = true;
+                  return acc;
+                }, {});
+                const startNode = nodes.find((node) => !incomingEdges[node.id]) || nodes[0];
+                if (startNode) {
+                  currentNodeId = startNode.id;
+                  chatHistory = [{ node: startNode, userInput: null }];
+                  isTyping = true;
+                  autoAdvanceTextNodes();
+                  requestAnimationFrame(renderChat);
+                }
+              });
+            };
+
+            const autoAdvanceTextNodes = () => {
+              let current = nodes.find((n) => n.id === currentNodeId);
+              while (current && (current.type === 'text' || current.type === 'condition') && !chatHistory.find((h) => h.node.id === current.id && h.userInput)) {
+                if (current.type === 'condition') {
+                  const lastInputEntry = chatHistory
+                    .slice()
+                    .reverse()
+                    .find((entry) => entry.userInput && (entry.node.type === 'singleInput' || entry.node.type === 'aiinput'));
+                  const userInput = lastInputEntry ? lastInputEntry.userInput : null;
+                  const conditionResult = safeEvaluateCondition(current.data.label || 'false', userInput);
+                  const sourceHandle = conditionResult ? 'yes' : 'no';
+                  const nextEdge = edges.find((edge) => edge.source === current.id && edge.sourceHandle === sourceHandle);
+                  if (!nextEdge) break;
+                  const nextNode = nodes.find((n) => n.id === nextEdge.target);
+                  if (!nextNode) break;
+                  currentNodeId = nextNode.id;
+                  chatHistory.push({ node: nextNode, userInput: null });
+                  current = nextNode;
+                } else {
+                  const nextEdge = edges.find((edge) => edge.source === current.id);
+                  if (!nextEdge) break;
+                  const nextNode = nodes.find((n) => n.id === nextEdge.target);
+                  if (!nextNode) break;
+                  currentNodeId = nextNode.id;
+                  chatHistory.push({ node: nextNode, userInput: null });
+                  current = nextNode;
+                }
+              }
+              isTyping = false;
+              requestAnimationFrame(renderChat);
+            };
+
+            const handleInteraction = async (nodeId, userInput, optionIndex = null) => {
+              console.log('[Chatbot] Interaction:', { nodeId, userInput, optionIndex });
+              const currentNode = nodes.find((n) => n.id === nodeId);
+
+              const currentHistoryEntry = chatHistory.find((h) => h.node.id === nodeId && !h.userInput);
+              if (currentHistoryEntry) {
+                currentHistoryEntry.userInput = userInput;
+              } else {
+                chatHistory.push({ node: currentNode, userInput });
+              }
+
+              // Check if SMTP is configured for form submissions
+              let smtpConfigured = false;
+              try {
+                const smtpResponse = await fetch(\`https://back.techrecto.com/api/smtp/get/\${config.userId}\`);
+                if (smtpResponse.ok) {
+                  const smtpData = await smtpResponse.json();
+                  smtpConfigured = smtpData && smtpData.host && smtpData.port && smtpData.username;
+                }
+              } catch (error) {
+                console.error('[Chatbot] Error checking SMTP configuration:', error.message);
+              }
+
+              // Handle form submission and email sending
+              if (currentNode.type === 'form') {
+                const email = userInput.email || config.userEmail;
+                if (!email) {
+                  const messages = container.querySelector('.chatbot-messages');
+                  messages.innerHTML += \`
+                    <div style="
+                      padding: 12px 16px;
+                      background: rgba(255, 0, 0, 0.1);
+                      color: #d32f2f;
+                      border-radius: 12px;
+                      max-width: 75%;
+                      align-self: flex-start;
+                      margin-top: 16px;
+                      font-size: 14px;
+                    ">
+                      Email is required to submit the form.
+                    </div>
+                  \`;
+                  messages.scrollTop = messages.scrollHeight;
+                  isTyping = false;
+                  return;
+                }
+
+                try {
+                  const response = await fetch('https://back.techrecto.com/api/chatbot/form-responses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userEmail: email,
+                      formId: nodeId,
+                      formName: flowName || 'Unnamed Form',
+                      flowId: config.flowId,
+                      userId: config.userId,
+                      date: new Date().toISOString().split('T')[0],
+                      submitDate: new Date().toISOString(),
+                      response: userInput
+                    })
+                  });
+                  if (!response.ok) {
+                    throw new Error(\`Failed to save form response: \${response.statusText}\`);
+                  }
+                  console.log('[Chatbot] Form response saved:', { userEmail: email, formId: nodeId, response: userInput });
+
+                  // Send email if SMTP is configured
+                  if (smtpConfigured) {
+                    const emailResponse = await fetch('https://back.techrecto.com/api/smtp/send-email', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        userId: config.userId,
+                        to: email,
+                        subject: \`Form Submission: \${flowName || 'Unnamed Form'}\`,
+                        html: \`
+                          <h2>Thank You for Your Submission!</h2>
+                          <p>Here are the details you submitted:</p>
+                          <ul style="list-style-type: none; padding: 0;">
+                            \${Object.entries(userInput)
+                              .map(([key, value]) => \`<li><strong>\${key}:</strong> \${value}</li>\`)
+                              .join('')}
+                          </ul>
+                          <p>Flow: \${flowName || 'Unnamed Flow'}</p>
+                          <p>Submitted on: \${new Date().toLocaleString()}</p>
+                        \`
+                      })
+                    });
+                    if (emailResponse.ok) {
+                      console.log('[Chatbot] Email sent successfully to:', email);
+                    } else {
+                      console.error('[Chatbot] Failed to send email:', await emailResponse.text());
+                    }
+                  }
+                } catch (error) {
+                  console.error('[Chatbot] Error saving form response or sending email:', error.message);
+                  const messages = container.querySelector('.chatbot-messages');
+                  messages.innerHTML += \`
+                    <div style="
+                      padding: 12px 16px;
+                      background: rgba(255, 0, 0, 0.1);
+                      color: #d32f2f;
+                      border-radius: 12px;
+                      max-width: 75%;
+                      align-self: flex-start;
+                      margin-top: 16px;
+                      font-size: 14px;
+                    ">
+                      Failed to submit form. Please try again.
+                    </div>
+                  \`;
+                  messages.scrollTop = messages.scrollHeight;
+                  isTyping = false;
+                  return;
+                }
+              }
+
+              let nextEdge = null;
+              if (currentNode.type === 'custom' && optionIndex !== null) {
+                const sourceHandle = \`option-\${optionIndex}\`;
+                nextEdge = edges.find((edge) => edge.source === nodeId && edge.sourceHandle === sourceHandle);
+              } else if (currentNode.type === 'condition') {
+                const lastInputEntry = chatHistory
+                  .slice()
+                  .reverse()
+                  .find((entry) => entry.userInput && (entry.node.type === 'singleInput' || entry.node.type === 'aiinput'));
+                const userInputValue = lastInputEntry ? lastInputEntry.userInput : null;
+                const conditionResult = safeEvaluateCondition(currentNode.data.label || 'false', userInputValue);
+                const sourceHandle = conditionResult ? 'yes' : 'no';
+                nextEdge = edges.find((edge) => edge.source === nodeId && edge.sourceHandle === sourceHandle);
+              } else {
+                nextEdge = edges.find((edge) => edge.source === nodeId);
+              }
+
+              if (nextEdge) {
+                const nextNode = nodes.find((n) => n.id === nextEdge.target);
+                if (nextNode) {
+                  currentNodeId = nextNode.id;
+                  chatHistory.push({ node: nextNode, userInput: null });
+
+                  fetch('https://back.techrecto.com/api/chatbot/interactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userId: config.userId,
+                      flowId: config.flowId,
+                      nodeId: nextNode.id,
+                      userInput: userInput || null,
+                      botResponse: nextNode.data.label || 'Bot response',
+                      date: new Date().toISOString().split('T')[0]
+                    })
+                  })
+                    .then((response) => {
+                      if (!response.ok) {
+                        throw new Error(\`Failed to save interaction: \${response.statusText}\`);
+                      }
+                      console.log('[Chatbot] Interaction saved:', { userInput, botResponse: nextNode.data.label || 'Bot response' });
+                    })
+                    .catch((error) => {
+                      console.error('[Chatbot] Error saving interaction:', error.message);
+                    });
+
+                  setTimeout(() => {
+                    isTyping = false;
+                    autoAdvanceTextNodes();
+                  }, 300);
+                } else {
+                  console.error('[Chatbot] Error: Next node not found for edge:', nextEdge);
+                  isTyping = false;
+                  requestAnimationFrame(renderChat);
+                }
+              } else {
+                console.warn('[Chatbot] Flow completed, no next edge found for node:', nodeId);
+                isTyping = false;
+                const messages = container.querySelector('.chatbot-messages');
+                messages.innerHTML += \`
+                  <div class="message bot-message" style="
+                    background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+                    backdrop-filter: blur(5px);
+                    color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                    padding: 16px;
+                    border-radius: 12px;
+                    max-width: 85%;
+                    align-self: flex-start;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    animation: slide-in 0.3s ease;
+                    margin-top: 16px;
+                  ">
+                    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">Conversation Summary</h3>
+                    <ul style="list-style-type: none; padding: 0; font-size: 14px;">
+                      \${chatHistory
+                        .map((entry) => {
+                          const { node, userInput } = entry;
+                          let html = '';
+                          if (node.type === 'text' || node.type === 'custom' || node.type === 'condition' || node.type === 'singleInput' || node.type === 'aiinput') {
+                            html += \`<li style="margin-bottom: 8px;"><strong>Bot:</strong> \${node.data.label || 'No message'}</li>\`;
+                          }
+                          if (userInput) {
+                            html += \`<li style="margin-bottom: 8px;"><strong>You:</strong> \${typeof userInput === 'object' ? Object.entries(userInput).map(([k, v]) => \`\${k}: \${v}\`).join(', ') : userInput}</li>\`;
+                          }
+                          return html;
+                        })
+                        .join('')}
+                    </ul>
+                    <span style="
+                      font-size: 12px;
+                      color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+                      opacity: 0.6;
+                      margin-top: 8px;
+                      display: block;
+                    ">\${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                \`;
+                messages.scrollTop = messages.scrollHeight;
+                requestAnimationFrame(renderChat);
+              }
+            };
 
             const styleSheet = document.createElement('style');
             styleSheet.innerText = \`
@@ -1306,7 +1494,8 @@ router.get('/script.js', async (req, res) => {
     console.error('[Chatbot] Error serving chatbot script:', error);
     res.status(500).send('Error serving chatbot script');
   }
-});
+})
+
 
 
 

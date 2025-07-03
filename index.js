@@ -52,11 +52,11 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       frameAncestors: ["*"],
-      scriptSrc: ["'self'", "http://localhost:5000", "http://localhost:3000"],
+      scriptSrc: ["'self'", "https://back.techrecto.com", "http://localhost:3000"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https://*"],
-      connectSrc: ["'self'", "http://localhost:5000", "http://localhost:3000", "https://back.techrecto.com"],
+      connectSrc: ["'self'", "https://back.techrecto.com", "http://localhost:3000", "https://back.techrecto.com"],
     },
   },
 }));
@@ -66,7 +66,7 @@ app.use(helmet({
 //     const allowedOrigins = [
 //       process.env.FRONTEND_URL,
 //       "http://localhost:3000",
-//             "http://localhost:5000",
+//             "https://back.techrecto.com",
 
 //       "https://back.techrecto.com",
 //       "http://localhost:3001",

@@ -1,6 +1,6 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
-const SmtpConfig = require('../models/smtpConfig'); // Import your model
+const SmtpConfig = require('../models/SmtpConfig'); // Import your model
 
 const router = express.Router();
 

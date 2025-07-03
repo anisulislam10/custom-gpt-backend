@@ -82,7 +82,10 @@ router.get('/:flowId/:userId', async (req, res) => {
         <title>Chatbot</title>
         <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
         <script src="/api/chatbot/script.js"></script>
-        <script src="/api/chatbot/config.js?flowId=${req.params.flowId}&userId=${req.params.userId}&primary=${encodeURIComponent(req.query.primary || '#6366f1')}&secondary=${encodeURIComponent(req.query.secondary || '#f59e0b')}&background=${encodeURIComponent(req.query.background || '#f8fafc')}&text=${encodeURIComponent(req.query.text || '#1f2937')}&name=${encodeURIComponent(req.query.name || 'Assistant')}&avatar=${encodeURIComponent(req.query.avatar || 'https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200')}"></script>
+        <script src="/api/chatbot/config.js?flowId=${req.params.flowId}&userId=${req.params.userId}&primary=${encodeURIComponent(req.query.primary || '#6366f1')}&secondary=${encodeURIComponent(req.query.secondary || '#f59e0b')}&background=${encodeURIComponent(req.query.background || '#f8fafc')}&text=${encodeURIComponent(req.query.text || '#1f2937')}&name=${encodeURIComponent(req.query.name || 'Assistant')}&avatar=${encodeURIComponent('https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200')}"></script>
+    <script src="/chatbot-init.js"></script>
+
+
         <script src="/chatbot-init.js"></script>
       </head>
       <body>
@@ -111,7 +114,7 @@ router.get('/config.js', (req, res) => {
           background: "${background || '#f8fafc'}",
           text: "${text || '#1f2937'}",
           name: "${name || 'Assistant'}",
-          avatar: "${avatar || '/api/chatbot/avatar.png'}"
+          avatar: "/api/chatbot/avatar.png}"
         }
       };
     })();
@@ -203,7 +206,7 @@ router.get('/script.js', async (req, res) => {
                   border-top-right-radius: 16px;
                 ">
                   <div style="display: flex; align-items: center; gap: 12px;">
-                    <img src="\${config.theme?.avatar || '/api/chatbot/avatar.png'}" alt="Chatbot Avatar" style="width: 32px; height: 32px; border-radius: 50%;" />
+                    <img src="https://img.freepik.com/free-vector/chatbot-chat-message-vectorart_78370-4104.jpg?semt=ais_hybrid&w=200" alt="Chatbot Avatar" style="width: 32px; height: 32px; border-radius: 50%;" />
                     <span style="font-size: 18px; font-weight: 600;">\${config.theme?.name || 'Assistant'}</span>
                   </div>
                   <div style="display: flex; gap: 8px;">

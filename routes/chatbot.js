@@ -126,7 +126,6 @@ router.get('/config.js', (req, res) => {
 
 // GET /script.js - Serve chatbot script
 
-
 router.get('/script.js', async (req, res) => {
   try {
     console.log('[Chatbot] Serving chatbot script');
@@ -163,6 +162,11 @@ router.get('/script.js', async (req, res) => {
       };
 
       window.initChatbot = function () {
+       if (window.chatbotInitialized) {
+    console.log('[Chatbot] Already initialized, skipping');
+    return;
+  }
+  window.chatbotInitialized = true; 
         console.log('[Chatbot] Initializing chatbot');
         
         // Delay initialization to ensure DOM is ready
@@ -710,36 +714,38 @@ router.get('/script.js', async (req, res) => {
 
             const fetchUrl = \`https://back.techrecto.com/api/flow/\${config.userId}/\${config.flowId}\`;
             console.log('[Chatbot] Fetching flow from:', fetchUrl);
-            fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
-              .then((response) => {
-                console.log('[Chatbot] Fetch response status:', response.status, response.statusText);
-                if (!response.ok) {
-                  throw new Error(\`HTTP \${response.status}: \${response.statusText}\`);
-                }
-                return response.json();
-              })
-              .then((flow) => {
-                console.log('[Chatbot] Flow data received:', flow);
-                if (!flow.nodes || !flow.edges) {
-                  throw new Error('Invalid flow data: nodes or edges missing');
-                }
-                flowName = flow.name || 'Unnamed Flow';
-                nodes = flow.nodes;
-                edges = flow.edges;
+          fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
+  .then((response) => {
+    if (!response.ok) {
+      throw new Error(\`HTTP \${response.status}: \${response.statusText}\`);
+    }
+    return response.json();
+  })
+  .then((flow) => {
+    console.log('[Chatbot] Flow data received:', flow);
+    if (!flow || !Array.isArray(flow.nodes) || !Array.isArray(flow.edges)) {
+      throw new Error('Invalid flow data: nodes or edges missing or not arrays');
+    }
+    if (flow.nodes.length === 0) {
+      throw new Error('Invalid flow data: no nodes found');
+    }
+    flowName = flow.name || 'Contact Form';
+    nodes = flow.nodes;
+    edges = flow.edges;
 
-                const incomingEdges = edges.reduce((acc, edge) => {
-                  acc[edge.target] = true;
-                  return acc;
-                }, {});
-                const startNode = nodes.find((node) => !incomingEdges[node.id]) || nodes[0];
-                if (!startNode) {
-                  throw new Error('No starting node found');
-                }
-                currentNodeId = startNode.id;
-                chatHistory = [{ node: startNode, userInput: null }];
-                isTyping = true;
-                autoAdvanceTextNodes();
-              })
+    const incomingEdges = edges.reduce((acc, edge) => {
+      acc[edge.target] = true;
+      return acc;
+    }, {});
+    const startNode = nodes.find((node) => !incomingEdges[node.id]) || nodes[0];
+    if (!startNode) {
+      throw new Error('No starting node found');
+    }
+    currentNodeId = startNode.id;
+    chatHistory = [{ node: startNode, userInput: null }];
+    isTyping = true;
+    autoAdvanceTextNodes();
+  })
               .catch((error) => {
                 console.error('[Chatbot] Error fetching flow:', error.message);
                 container.innerHTML = \`
@@ -779,10 +785,31 @@ router.get('/script.js', async (req, res) => {
               });
 
             const renderChat = () => {
-              const messages = container.querySelector('.chatbot-messages');
-              const inputWrapper = container.querySelector('.chatbot-input');
-              const currentNode = nodes.find((n) => n.id === currentNodeId);
+            const messages = container.querySelector('.chatbot-messages');
+  const inputWrapper = container.querySelector('.chatbot-input');
+  const currentNode = nodes.find((n) => n.id === currentNodeId);
+const existingMessageIds = new Set(
+    Array.from(messages.querySelectorAll('.message')).map(el => el.dataset.messageId)
+  );
 
+  // Remove existing event listeners to prevent duplicates
+  const existingButtons = container.querySelectorAll('button[data-option-index]');
+  existingButtons.forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.replaceWith(newBtn);
+  });
+
+  const existingForms = container.querySelectorAll('form[id^="chatbot-form-"]');
+  existingForms.forEach(form => {
+    const newForm = form.cloneNode(true);
+    form.replaceWith(newForm);
+  });
+
+  const existingBottomInput = container.querySelector('#chatbot-bottom-input');
+  if (existingBottomInput) {
+    const newBottomInput = existingBottomInput.cloneNode(true);
+    existingBottomInput.replaceWith(newBottomInput);
+  }
               inputWrapper.style.display = (currentNode?.type === 'singleInput' || currentNode?.type === 'aiinput') ? 'block' : 'none';
               if (currentNode?.type === 'singleInput' || currentNode?.type === 'aiinput') {
                 const input = inputWrapper.querySelector('input');
@@ -947,7 +974,8 @@ router.get('/script.js', async (req, res) => {
                                       onblur="this.style.borderColor='\${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)'}'; this.style.boxShadow='none'"
                                       \${field.required ? 'required' : ''}
                                       aria-label="\${field.label}"
-                                      \${field.key === 'email' ? 'pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\\\.[a-z]{2,}$"' : ''}
+\${field.key === 'email' }
+
                                     />
                                   </div>
                                 \`
@@ -1087,326 +1115,631 @@ router.get('/script.js', async (req, res) => {
               }
 
               messages.scrollTop = messages.scrollHeight;
-
+const removeEventListeners = (element, eventType) => {
+  const clone = element.cloneNode(true);
+  element.replaceWith(clone);
+  return clone;
+};
               // Event listeners for buttons and forms
-              container.querySelectorAll('button[data-option-index]').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                  const optionIndex = btn.getAttribute('data-option-index');
-                  const option = btn.textContent;
-                  isTyping = true;
-                  handleInteraction(currentNodeId, option, parseInt(optionIndex));
-                });
-              });
+   container.querySelectorAll('button[data-option-index]').forEach((btn) => {
+  btn = removeEventListeners(btn, 'click');
+  btn.addEventListener('click', () => {
+    const optionIndex = btn.getAttribute('data-option-index');
+    const option = btn.textContent;
+    isTyping = true;
+    handleInteraction(currentNodeId, option, parseInt(optionIndex));
+  });
+});
 
-              container.querySelectorAll('form[id^="chatbot-form-"]').forEach((form) => {
-                form.addEventListener('submit', (e) => {
-                  e.preventDefault();
-                  const formData = new FormData(form);
-                  const data = Object.fromEntries(formData);
-                  const email = data.email || config.userEmail;
-                  if (email && !/^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$/i.test(email)) {
-                    messages.innerHTML += \`
-                      <div style="
-                        padding: 12px 16px;
-                        background: rgba(255, 0, 0, 0.1);
-                        color: #d32f2f;
-                        border-radius: 12px;
-                        max-width: 75%;
-                        align-self: flex-start;
-                        margin-top: 16px;
-                        font-size: 14px;
-                      ">
-                        Please enter a valid email address.
-                      </div>
-                    \`;
-                    messages.scrollTop = messages.scrollHeight;
-                    isTyping = false;
-                    return;
-                  }
-                  isTyping = true;
-                  handleInteraction(currentNodeId, data);
-                });
-              });
+            container.querySelectorAll('form[id^="chatbot-form-"]').forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+      const email = data.email || config.userEmail;
+      if (email && !/^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$/i.test(email)) {
+        messages.innerHTML += \`
+          <div style="
+            padding: 12px 16px;
+            background: rgba(255, 0, 0, 0.1);
+            color: #d32f2f;
+            border-radius: 12px;
+            max-width: 75%;
+            align-self: flex-start;
+            margin-top: 16px;
+            font-size: 14px;
+          ">
+            Please enter a valid email address.
+          </div>
+        \`;
+        messages.scrollTop = messages.scrollHeight;
+        isTyping = false;
+        return;
+      }
+      isTyping = true;
+      handleInteraction(currentNodeId, data);
+    });
+  });
 
-              const bottomInputForm = container.querySelector('#chatbot-bottom-input');
-              if (bottomInputForm) {
-                bottomInputForm.addEventListener('submit', (e) => {
-                  e.preventDefault();
-                  const formData = new FormData(bottomInputForm);
-                  const data = Object.fromEntries(formData);
-                  isTyping = true;
-                  handleInteraction(currentNodeId, data.message);
-                  bottomInputForm.reset();
-                });
-              }
+  const bottomInputForm = container.querySelector('#chatbot-bottom-input');
+  if (bottomInputForm) {
+    bottomInputForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const formData = new FormData(bottomInputForm);
+      const data = Object.fromEntries(formData);
+      isTyping = true;
+      handleInteraction(currentNodeId, data.message);
+      bottomInputForm.reset();
+    });
+  }
 
-              container.querySelector('#reset-chat')?.addEventListener('click', () => {
-                const incomingEdges = edges.reduce((acc, edge) => {
-                  acc[edge.target] = true;
-                  return acc;
-                }, {});
-                const startNode = nodes.find((node) => !incomingEdges[node.id]) || nodes[0];
-                if (startNode) {
-                  currentNodeId = startNode.id;
-                  chatHistory = [{ node: startNode, userInput: null }];
-                  isTyping = true;
-                  autoAdvanceTextNodes();
-                  requestAnimationFrame(renderChat);
-                }
-              });
-            };
+  container.querySelector('#reset-chat')?.addEventListener('click', () => {
+    window.hasSentCompletionEmail = false;
+    const incomingEdges = edges.reduce((acc, edge) => {
+      acc[edge.target] = true;
+      return acc;
+    }, {});
+    const startNode = nodes.find((node) => !incomingEdges[node.id]) || nodes[0];
+    if (startNode) {
+      currentNodeId = startNode.id;
+      chatHistory = [{ node: startNode, userInput: null }];
+      isTyping = true;
+      autoAdvanceTextNodes();
+      requestAnimationFrame(renderChat);
+    }
+  });
+};
+const autoAdvanceTextNodes = () => {
+  let current = nodes.find((n) => n.id === currentNodeId);
+  const visitedNodes = new Set();
+  while (current && (current.type === 'text' || current.type === 'condition') && !chatHistory.find((h) => h.node.id === current.id && h.userInput)) {
+    
+  visitedNodes.add(current.id);
+    if (current.type === 'condition') {
+      const lastInputEntry = chatHistory
+        .slice()
+        .reverse()
+        .find((entry) => entry.userInput && (entry.node.type === 'singleInput' || entry.node.type === 'aiinput'));
+      const userInput = lastInputEntry ? lastInputEntry.userInput : null;
+      const conditionResult = safeEvaluateCondition(current.data.label || 'false', userInput);
+      const sourceHandle = conditionResult ? 'yes' : 'no';
+      const nextEdge = edges.find((edge) => edge.source === current.id && edge.sourceHandle === sourceHandle);
+      if (!nextEdge) {
+        console.log('[Chatbot] No next edge for condition node, ending:', current.id);
+        handleInteraction(current.id, null);
+        break;
+      }
+      const nextNode = nodes.find((n) => n.id === nextEdge.target);
+      if (!nextNode) {
+        console.log('[Chatbot] No next node for condition edge, ending:', current.id);
+        handleInteraction(current.id, null);
+        break;
+      }
+      currentNodeId = nextNode.id;
+      chatHistory.push({ node: nextNode, userInput: null });
+      current = nextNode;
+    } else {
+      const nextEdge = edges.find((edge) => edge.source === current.id);
+      if (!nextEdge) {
+        console.log('[Chatbot] No next edge for text node, treating as end:', current.id);
+        handleInteraction(current.id, null); // Trigger end node check
+        break;
+      }
+      const nextNode = nodes.find((n) => n.id === nextEdge.target);
+      if (!nextNode) {
+        console.log('[Chatbot] No next node for text edge, treating as end:', current.id);
+        handleInteraction(current.id, null); // Trigger end node check
+        break;
+      }
+      currentNodeId = nextNode.id;
+      chatHistory.push({ node: nextNode, userInput: null });
+      current = nextNode;
+    }
+  }
+  isTyping = false;
+  requestAnimationFrame(renderChat);
+};
 
-            const autoAdvanceTextNodes = () => {
-              let current = nodes.find((n) => n.id === currentNodeId);
-              while (current && (current.type === 'text' || current.type === 'condition') && !chatHistory.find((h) => h.node.id === current.id && h.userInput)) {
-                if (current.type === 'condition') {
-                  const lastInputEntry = chatHistory
-                    .slice()
-                    .reverse()
-                    .find((entry) => entry.userInput && (entry.node.type === 'singleInput' || entry.node.type === 'aiinput'));
-                  const userInput = lastInputEntry ? lastInputEntry.userInput : null;
-                  const conditionResult = safeEvaluateCondition(current.data.label || 'false', userInput);
-                  const sourceHandle = conditionResult ? 'yes' : 'no';
-                  const nextEdge = edges.find((edge) => edge.source === current.id && edge.sourceHandle === sourceHandle);
-                  if (!nextEdge) break;
-                  const nextNode = nodes.find((n) => n.id === nextEdge.target);
-                  if (!nextNode) break;
-                  currentNodeId = nextNode.id;
-                  chatHistory.push({ node: nextNode, userInput: null });
-                  current = nextNode;
-                } else {
-                  const nextEdge = edges.find((edge) => edge.source === current.id);
-                  if (!nextEdge) break;
-                  const nextNode = nodes.find((n) => n.id === nextEdge.target);
-                  if (!nextNode) break;
-                  currentNodeId = nextNode.id;
-                  chatHistory.push({ node: nextNode, userInput: null });
-                  current = nextNode;
-                }
-              }
-              isTyping = false;
-              requestAnimationFrame(renderChat);
-            };
+const handleInteraction = async (nodeId, userInput, optionIndex = null) => {
+  console.log('[Chatbot] Interaction started:', { nodeId, userInput, optionIndex });
+  
+  try {
+    const currentNode = nodes.find(n => n.id === nodeId);
+    if (!currentNode) throw new Error('Current node not found');
+    
+    const historyEntry = chatHistory.find(h => h.node.id === nodeId && !h.userInput);
+    if (historyEntry) {
+  historyEntry.userInput = userInput;
+} else if (!chatHistory.some(h => h.node.id === nodeId && h.userInput === userInput)) {
+  chatHistory.push({ node: currentNode, userInput });
+}
 
-            const handleInteraction = async (nodeId, userInput, optionIndex = null) => {
-              console.log('[Chatbot] Interaction:', { nodeId, userInput, optionIndex });
-              const currentNode = nodes.find((n) => n.id === nodeId);
+    if (currentNode.type === 'form') {
+      await handleFormSubmission(currentNode, userInput);
+    }
 
-              const currentHistoryEntry = chatHistory.find((h) => h.node.id === nodeId && !h.userInput);
-              if (currentHistoryEntry) {
-                currentHistoryEntry.userInput = userInput;
-              } else {
-                chatHistory.push({ node: currentNode, userInput });
-              }
+    const isEndNode = currentNode.data?.isEndNode || 
+                     edges.filter(e => e.source === nodeId).length === 0;
+    
+    console.log('[Chatbot] End node check:', {
+      nodeId: currentNode.id,
+      isEndNode,
+      isEndNodeFlag: currentNode.data?.isEndNode,
+      outgoingEdges: edges.filter(e => e.source === nodeId)
+    });
 
-              // Check if SMTP is configured for form submissions
-              let smtpConfigured = false;
-              try {
-                const smtpResponse = await fetch(\`https://back.techrecto.com/api/smtp/get/\${config.userId}\`);
-                if (smtpResponse.ok) {
-                  const smtpData = await smtpResponse.json();
-                  smtpConfigured = smtpData && smtpData.host && smtpData.port && smtpData.username;
-                }
-              } catch (error) {
-                console.error('[Chatbot] Error checking SMTP configuration:', error.message);
-              }
+    if (isEndNode) {
+      console.log('[Chatbot] End node detected:', currentNode.id);
+      await handleFlowCompletion(currentNode);
+      return;
+    }
 
-              // Handle form submission and email sending
-              if (currentNode.type === 'form') {
-                const email = userInput.email || config.userEmail;
-                if (!email) {
-                  const messages = container.querySelector('.chatbot-messages');
-                  messages.innerHTML += \`
-                    <div style="
-                      padding: 12px 16px;
-                      background: rgba(255, 0, 0, 0.1);
-                      color: #d32f2f;
-                      border-radius: 12px;
-                      max-width: 75%;
-                      align-self: flex-start;
-                      margin-top: 16px;
-                      font-size: 14px;
-                    ">
-                      Email is required to submit the form.
-                    </div>
-                  \`;
-                  messages.scrollTop = messages.scrollHeight;
-                  isTyping = false;
-                  return;
-                }
+    const nextEdge = findNextEdge(currentNode, nodeId, userInput, optionIndex);
+    console.log('[Chatbot] Next edge result:', { nodeId, nextEdge });
+    if (nextEdge) {
+      await handleNextNode(nextEdge, userInput);
+    } else {
+      console.warn('[Chatbot] No next edge found, treating as end node:', currentNode.id);
+      await handleFlowCompletion(currentNode);
+    }
 
-                try {
-                  const response = await fetch('https://back.techrecto.com/api/chatbot/form-responses', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      userEmail: email,
-                      formId: nodeId,
-                      formName: flowName || 'Unnamed Form',
-                      flowId: config.flowId,
-                      userId: config.userId,
-                      date: new Date().toISOString().split('T')[0],
-                      submitDate: new Date().toISOString(),
-                      response: userInput
-                    })
-                  });
-                  if (!response.ok) {
-                    throw new Error(\`Failed to save form response: \${response.statusText}\`);
-                  }
-                  console.log('[Chatbot] Form response saved:', { userEmail: email, formId: nodeId, response: userInput });
+  } catch (error) {
+    console.error('[Chatbot] Interaction error:', error);
+    showErrorMessage(error.message);
+    isTyping = false;
+  }
 
-                  // Send email if SMTP is configured
-                  if (smtpConfigured) {
-                    const emailResponse = await fetch('https://back.techrecto.com/api/smtp/send-email', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        userId: config.userId,
-                        to: email,
-                        subject: \`Form Submission: \${flowName || 'Unnamed Form'}\`,
-                        html: \`
-                          <h2>Thank You for Your Submission!</h2>
-                          <p>Here are the details you submitted:</p>
-                          <ul style="list-style-type: none; padding: 0;">
-                            \${Object.entries(userInput)
-                              .map(([key, value]) => \`<li><strong>\${key}:</strong> \${value}</li>\`)
-                              .join('')}
-                          </ul>
-                          <p>Flow: \${flowName || 'Unnamed Flow'}</p>
-                          <p>Submitted on: \${new Date().toLocaleString()}</p>
-                        \`
-                      })
-                    });
-                    if (emailResponse.ok) {
-                      console.log('[Chatbot] Email sent successfully to:', email);
-                    } else {
-                      console.error('[Chatbot] Failed to send email:', await emailResponse.text());
-                    }
-                  }
-                } catch (error) {
-                  console.error('[Chatbot] Error saving form response or sending email:', error.message);
-                  const messages = container.querySelector('.chatbot-messages');
-                  messages.innerHTML += \`
-                    <div style="
-                      padding: 12px 16px;
-                      background: rgba(255, 0, 0, 0.1);
-                      color: #d32f2f;
-                      border-radius: 12px;
-                      max-width: 75%;
-                      align-self: flex-start;
-                      margin-top: 16px;
-                      font-size: 14px;
-                    ">
-                      Failed to submit form. Please try again.
-                    </div>
-                  \`;
-                  messages.scrollTop = messages.scrollHeight;
-                  isTyping = false;
-                  return;
-                }
-              }
+  requestAnimationFrame(renderChat);
+};
+// Helper Functions
 
-              let nextEdge = null;
-              if (currentNode.type === 'custom' && optionIndex !== null) {
-                const sourceHandle = \`option-\${optionIndex}\`;
-                nextEdge = edges.find((edge) => edge.source === nodeId && edge.sourceHandle === sourceHandle);
-              } else if (currentNode.type === 'condition') {
-                const lastInputEntry = chatHistory
-                  .slice()
-                  .reverse()
-                  .find((entry) => entry.userInput && (entry.node.type === 'singleInput' || entry.node.type === 'aiinput'));
-                const userInputValue = lastInputEntry ? lastInputEntry.userInput : null;
-                const conditionResult = safeEvaluateCondition(currentNode.data.label || 'false', userInputValue);
-                const sourceHandle = conditionResult ? 'yes' : 'no';
-                nextEdge = edges.find((edge) => edge.source === nodeId && edge.sourceHandle === sourceHandle);
-              } else {
-                nextEdge = edges.find((edge) => edge.source === nodeId);
-              }
+async function handleFormSubmission(node, formData) {
+  const email = formData.email || config.userEmail;
 
-              if (nextEdge) {
-                const nextNode = nodes.find((n) => n.id === nextEdge.target);
-                if (nextNode) {
-                  currentNodeId = nextNode.id;
-                  chatHistory.push({ node: nextNode, userInput: null });
+  try {
+    const response = await fetch('https://back.techrecto.com/api/chatbot/form-responses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userEmail: email,
+        formId: node.id,
+        formName: flowName || 'Contact Form',
+        flowId: config.flowId,
+        userId: config.userId,
+        date: new Date().toISOString().split('T')[0],
+        submitDate: new Date().toISOString(),
+        response: formData,
+      }),
+    });
 
-                  fetch('https://back.techrecto.com/api/chatbot/interactions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      userId: config.userId,
-                      flowId: config.flowId,
-                      nodeId: nextNode.id,
-                      userInput: userInput || null,
-                      botResponse: nextNode.data.label || 'Bot response',
-                      date: new Date().toISOString().split('T')[0]
-                    })
-                  })
-                    .then((response) => {
-                      if (!response.ok) {
-                        throw new Error(\`Failed to save interaction: \${response.statusText}\`);
-                      }
-                      console.log('[Chatbot] Interaction saved:', { userInput, botResponse: nextNode.data.label || 'Bot response' });
-                    })
-                    .catch((error) => {
-                      console.error('[Chatbot] Error saving interaction:', error.message);
-                    });
+    if (!response.ok) {
+      throw new Error(\`Form submission failed: \${response.statusText}\`);
+    }
 
-                  setTimeout(() => {
-                    isTyping = false;
-                    autoAdvanceTextNodes();
-                  }, 300);
-                } else {
-                  console.error('[Chatbot] Error: Next node not found for edge:', nextEdge);
-                  isTyping = false;
-                  requestAnimationFrame(renderChat);
-                }
-              } else {
-                console.warn('[Chatbot] Flow completed, no next edge found for node:', nodeId);
-                isTyping = false;
-                const messages = container.querySelector('.chatbot-messages');
-                messages.innerHTML += \`
-                  <div class="message bot-message" style="
-                    background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-                    backdrop-filter: blur(5px);
-                    color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                    padding: 16px;
-                    border-radius: 12px;
-                    max-width: 85%;
-                    align-self: flex-start;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                    animation: slide-in 0.3s ease;
-                    margin-top: 16px;
-                  ">
-                    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">Conversation Summary</h3>
-                    <ul style="list-style-type: none; padding: 0; font-size: 14px;">
-                      \${chatHistory
-                        .map((entry) => {
-                          const { node, userInput } = entry;
-                          let html = '';
-                          if (node.type === 'text' || node.type === 'custom' || node.type === 'condition' || node.type === 'singleInput' || node.type === 'aiinput') {
-                            html += \`<li style="margin-bottom: 8px;"><strong>Bot:</strong> \${node.data.label || 'No message'}</li>\`;
-                          }
-                          if (userInput) {
-                            html += \`<li style="margin-bottom: 8px;"><strong>You:</strong> \${typeof userInput === 'object' ? Object.entries(userInput).map(([k, v]) => \`\${k}: \${v}\`).join(', ') : userInput}</li>\`;
-                          }
-                          return html;
-                        })
-                        .join('')}
-                    </ul>
-                    <span style="
-                      font-size: 12px;
-                      color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
-                      opacity: 0.6;
-                      margin-top: 8px;
-                      display: block;
-                    ">\${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                \`;
-                messages.scrollTop = messages.scrollHeight;
-                requestAnimationFrame(renderChat);
-              }
-            };
+    console.log('[Chatbot] Form saved:', { email, formId: node.id });
+  } catch (error) {
+    console.error('[Chatbot] Form save error:', error);
+    throw new Error('Failed to save form data');
+  }
+}
 
+function findNextEdge(currentNode, nodeId, userInput, optionIndex) {
+  const outgoingEdges = edges.filter(e => e.source === nodeId);
+  console.log('[Chatbot] Finding next edge from:', {
+    nodeId,
+    nodeType: currentNode.type,
+    outgoingEdges: outgoingEdges
+  });
+
+  if (currentNode.type === 'custom' && optionIndex !== null) {
+    const sourceHandle = \`option-\${optionIndex}\`;
+    const edge = edges.find(e => e.source === nodeId && e.sourceHandle === sourceHandle);
+    if (!edge) {
+      console.warn('[Chatbot] No edge found for custom node option:', { nodeId, sourceHandle });
+      return null;
+    }
+    console.log('[Chatbot] Custom node edge selected:', { sourceHandle, edge });
+    return edge;
+  }
+
+  if (currentNode.type === 'condition') {
+    const lastInput = chatHistory
+      .slice()
+      .reverse()
+      .find(e => e.userInput && (e.node.type === 'singleInput' || e.node.type === 'aiinput'));
+    const conditionResult = safeEvaluateCondition(
+      currentNode.data.label || 'false',
+      lastInput?.userInput || null
+    );
+    const sourceHandle = conditionResult ? 'yes' : 'no';
+    const edge = edges.find(e => e.source === nodeId && e.sourceHandle === sourceHandle);
+    if (!edge) {
+      console.warn('[Chatbot] No edge found for condition node:', { nodeId, sourceHandle });
+      return null;
+    }
+    console.log('[Chatbot] Condition node edge selected:', {
+      condition: currentNode.data.label,
+      result: conditionResult,
+      edge
+    });
+    return edge;
+  }
+
+  if (outgoingEdges.length > 0) {
+    const edge = outgoingEdges[0];
+    const targetNode = nodes.find(n => n.id === edge.target);
+    if (!targetNode) {
+      console.warn('[Chatbot] Invalid edge detected, no target node:', edge);
+      return null;
+    }
+    console.log('[Chatbot] Selecting default edge:', edge);
+    return edge;
+  }
+
+  console.warn('[Chatbot] No valid outgoing edges found for node:', nodeId);
+  return null;
+}
+async function handleNextNode(nextEdge, userInput) {
+  const nextNode = nodes.find(n => n.id === nextEdge.target);
+  if (!nextNode) throw new Error('Next node not found');
+
+  currentNodeId = nextNode.id;
+  chatHistory.push({ node: nextNode, userInput: null });
+
+  try {
+    await saveInteraction(nextNode, userInput);
+    console.log('[Chatbot] Moving to next node:', nextNode.id);
+    
+    // Auto-advance for text/condition nodes
+    if (nextNode.type === 'text' || nextNode.type === 'condition') {
+      autoAdvanceTextNodes();
+    }
+  } catch (error) {
+    console.error('[Chatbot] Node transition failed:', error);
+    throw error;
+  }
+}
+
+async function handleFlowCompletion(currentNode) {
+  console.log('[Chatbot] Handling flow completion for node:', {
+    id: currentNode.id,
+    type: currentNode.type,
+    label: currentNode.data?.label,
+    hasForms: chatHistory.filter(e => e.node.type === 'form' && e.userInput).length > 0,
+    sendEmailFlag: currentNode.data?.sendEmailOnCompletion,
+    hasSentEmail: !!window.hasSentCompletionEmail
+  });
+
+  isTyping = false;
+
+  if (!currentNode.data.label?.toLowerCase().includes('thank')) {
+    renderCompletionMessage();
+  }
+
+  const formEntries = chatHistory.filter(e => e.node.type === 'form' && e.userInput);
+  const shouldSendEmail = (formEntries.length > 0 || currentNode.data?.sendEmailOnCompletion) &&
+                         !window.hasSentCompletionEmail;
+
+  console.log('[Chatbot] Email sending decision:', {
+    shouldSendEmail,
+    formEntriesCount: formEntries.length,
+    hasEmailFlag: currentNode.data?.sendEmailOnCompletion,
+    emailNotSent: !window.hasSentCompletionEmail
+  });
+
+  if (shouldSendEmail) {
+    try {
+      const userEmail = formEntries.length > 0 
+        ? formEntries[formEntries.length - 1].userInput.email || config.userEmail
+        : config.userEmail;
+
+      console.log('[Chatbot] Preparing emails:', { userEmail });
+
+      // Fetch SMTP configuration
+      const smtpResponse = await fetch(\`https://back.techrecto.com/api/smtp/get/\${config.userId}\`);
+      if (!smtpResponse.ok) throw new Error(\`Failed to get SMTP config: \${smtpResponse.statusText}\`);
+      const smtpConfig = await smtpResponse.json();
+      console.log('[Chatbot] SMTP Config:', smtpConfig);
+
+      // Email 1: Form submission details to userEmail
+      if (formEntries.length > 0 && userEmail) {
+        console.log('[Chatbot] Sending form email to:', userEmail);
+        const formEmailContent = {
+          subject: \`Form Submission Confirmation\`,
+          html: buildFormEmailHtml()
+        };
+        const formEmailResponse = await fetch('https://back.techrecto.com/api/smtp/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: config.userId,
+            to: userEmail,
+            subject: formEmailContent.subject,
+            html: formEmailContent.html,
+            type: 'form'
+          })
+        });
+        if (!formEmailResponse.ok) {
+          const errorText = await formEmailResponse.text();
+          throw new Error(\`Form email send failed: \${formEmailResponse.statusText} - \${errorText}\`);
+        }
+        console.log('[Chatbot] Form email sent successfully to:', userEmail);
+      }
+
+      // Email 2: Full conversation summary to SMTP username
+      console.log('[Chatbot] Sending full conversation email to:', smtpConfig.username);
+      const fullEmailContent = {
+        subject: \`Conversation Summary: \${flowName || 'Chat'}\`,
+        html: buildFullEmailHtml()
+      };
+      const fullEmailResponse = await fetch('https://back.techrecto.com/api/smtp/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: config.userId,
+          to: smtpConfig.username, // Send to SMTP username only
+          subject: fullEmailContent.subject,
+          html: fullEmailContent.html,
+          type: 'form' // Still using 'form' to align with server logic
+        })
+      });
+      if (!fullEmailResponse.ok) {
+        const errorText = await fullEmailResponse.text();
+        throw new Error(\`Full conversation email send failed: \${fullEmailResponse.statusText} - \${errorText}\`);
+      }
+
+      window.hasSentCompletionEmail = true;
+      showSuccessMessage(\`Summary sent to \${userEmail} and conversation details sent to \${smtpConfig.username}\`);
+      console.log('[Chatbot] Emails sent successfully');
+    } catch (emailError) {
+      console.error('[Chatbot] Email error:', emailError);
+      showErrorMessage(\`Failed to send emails: \${emailError.message}\`);
+    }
+  }
+
+  isTyping = false;
+  requestAnimationFrame(renderChat);
+}
+// Generate HTML for the full conversation summary (sent to SMTP username)
+function buildFullEmailHtml() {
+  const formEntries = chatHistory.filter(e => e.node.type === 'form' && e.userInput);
+  return \`
+    <div style="font-family: Arial; max-width: 600px; margin: auto; padding: 20px;">
+      <h2>Conversation Summary</h2>
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px;">
+      \${chatHistory.map(entry => {
+          // Bot responses: text, custom, condition; User inputs: form, singleInput, aiinput
+          const isBot = ['text', 'custom', 'condition'].includes(entry.node.type) && !entry.userInput;
+          return \`
+            <div style="margin-bottom: 10px; padding: 10px; background: white; border-radius: 4px;">
+              <strong>\${isBot ? 'Assistant' : 'You'}:</strong>
+              \${entry.userInput ? 
+                (typeof entry.userInput === 'object' ? 
+                  Object.entries(entry.userInput).map(([k, v]) => \`\${k}: \${v}\`).join('<br>') : 
+                  entry.userInput) : 
+                (entry.node.data?.label || 'No message')}
+            </div>
+          \`;
+        }).join('')}
+      </div>
+      \${formEntries.length > 0 ? \`
+        <div style="margin-top: 20px;">
+          <h3>Form Submission Details</h3>
+          \${formEntries.map(entry => \`
+            <div style="background: #e9ecef; padding: 10px; border-radius: 4px; margin-top: 10px;">
+              \${Object.entries(entry.userInput).map(([k, v]) => \`
+                <div><strong>\${k}:</strong> \${v}</div>
+              \`).join('')}
+            </div>
+          \`).join('')}
+        </div>
+      \` : ''}
+    </div>
+  \`;
+}
+
+// Generate HTML for only form submission details (sent to user)
+function buildFormEmailHtml() {
+  const formEntries = chatHistory.filter(e => e.node.type === 'form' && e.userInput);
+  return \`
+    <div style="font-family: Arial; max-width: 600px; margin: auto; padding: 20px;">
+      <h2>Form Submission Confirmation</h2>
+      \${formEntries.length > 0 ? \`
+        <div style="margin-top: 20px;">
+          <h3>Your Submission Details</h3>
+          \${formEntries.map(entry => \`
+            <div style="background: #e9ecef; padding: 10px; border-radius: 4px; margin-top: 10px;">
+              \${Object.entries(entry.userInput).map(([k, v]) => \`
+                <div><strong>\${k}:</strong> \${v}</div>
+              \`).join('')}
+            </div>
+          \`).join('')}
+        </div>
+      \` : '<p>No form submissions found.</p>'}
+    </div>
+  \`;
+}
+async function saveInteraction(node, userInput) {
+  const response = await fetch('https://back.techrecto.com/api/chatbot/interactions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: config.userId,
+      flowId: config.flowId,
+      nodeId: node.id,
+      userInput: userInput || null,
+      botResponse: node.data.label || 'Bot response',
+      date: new Date().toISOString().split('T')[0],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(\`Failed to save interaction: \${response.statusText}\`);
+  }
+
+  console.log('[Chatbot] Interaction saved:', {
+    nodeId: node.id,
+    userInput,
+    botResponse: node.data.label
+  });
+}
+
+function checkEmailConditions(currentNode) {
+  const formEntries = chatHistory.filter(e => e.node.type === 'form' && e.userInput);
+  const hasEmailFlag = currentNode.data?.sendEmailOnCompletion;
+  const emailNotSent = !window.hasSentCompletionEmail;
+
+  console.log('[Chatbot] Email conditions:', {
+    hasForms: formEntries.length > 0,
+    hasEmailFlag,
+    emailNotSent
+  });
+
+  return (formEntries.length > 0 || hasEmailFlag) && emailNotSent;
+}
+
+async function sendCompletionEmail(currentNode) {
+  try {
+    const formEntries = chatHistory.filter(e => e.node.type === 'form' && e.userInput);
+    const email = formEntries.length > 0 
+      ? formEntries[formEntries.length - 1].userInput.email || config.userEmail
+      : config.userEmail;
+
+
+    // Get SMTP config
+    const smtpConfig = await getSmtpConfig();
+    validateSmtpConfig(smtpConfig);
+
+    // Prepare and send email
+    const emailContent = buildEmailContent();
+    await sendEmail(email, emailContent);
+
+    window.hasSentCompletionEmail = true;
+    showSuccessMessage(\`Summary sent to \${email}\`);
+    
+  } catch (error) {
+    console.error('[Chatbot] Email error:', error);
+    showErrorMessage(\`Email failed: \${error.message}\`);
+  }
+}
+
+async function getSmtpConfig() {
+  const response = await fetch(\`https://back.techrecto.com/api/smtp/get/\${config.userId}\`);
+  if (!response.ok) {
+    throw new Error(\`SMTP config failed: \${response.statusText}\`);
+  }
+  return await response.json();
+}
+
+function validateSmtpConfig(config) {
+  if (!config?.host || !config?.port || !config?.username || !config?.password) {
+    throw new Error('Invalid SMTP configuration');
+  }
+}
+
+function buildEmailContent() {
+  const formEntries = chatHistory.filter(e => e.node.type === 'form' && e.userInput);
+  
+  return {
+    subject: \`Conversation Summary: \${flowName || 'Chat'}\`,
+    html: \`
+      <div style="font-family: Arial; max-width: 600px; margin: auto; padding: 20px;">
+        <h2>Chat Summary: \${flowName || 'Conversation'}</h2>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+          \${chatHistory.map(entry => \`
+            <div style="margin-bottom: 10px;">
+              <strong>\${entry.node.type === 'bot' ? 'Bot' : 'You'}:</strong>
+              \${entry.userInput ? 
+                (typeof entry.userInput === 'object' ? 
+                  Object.entries(entry.userInput).map(([k,v]) => \`\${k}: \${v}\`).join(', ') : 
+                  entry.userInput) : 
+                entry.node.data.label}
+            </div>
+          \`).join('')}
+        </div>
+      </div>
+    \`
+  };
+}
+
+async function sendEmail(to, content) {
+  const response = await fetch('https://back.techrecto.com/api/smtp/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: config.userId,
+      to,
+      subject: content.subject,
+      html: content.html,
+      type: 'completion'
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(\`Email send failed: \${response.statusText}\`);
+  }
+}
+
+
+
+function renderCompletionMessage() {
+  const messages = container.querySelector('.chatbot-messages');
+  messages.innerHTML += \`
+    <div class="message bot-message" style="
+      background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+      color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+      padding: 16px;
+      border-radius: 12px;
+      max-width: 85%;
+      align-self: flex-start;
+      margin-top: 16px;
+    ">
+      <p style="margin: 0;">Thank you! This conversation is now complete.</p>
+      <span style="
+        font-size: 12px;
+        color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+        opacity: 0.6;
+        display: block;
+        margin-top: 8px;
+      ">\${new Date().toLocaleTimeString()}</span>
+    </div>
+  \`;
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function showSuccessMessage(message) {
+  const messages = container.querySelector('.chatbot-messages');
+  messages.innerHTML += \`
+    <div style="
+      padding: 12px 16px;
+      background: rgba(0, 200, 0, 0.1);
+      color: #2e7d32;
+      border-radius: 12px;
+      max-width: 75%;
+      align-self: flex-start;
+      margin-top: 16px;
+    ">
+      \${message}
+    </div>
+  \`;
+}
+
+function showErrorMessage(message) {
+  const messages = container.querySelector('.chatbot-messages');
+  messages.innerHTML += \`
+    <div style="
+      padding: 12px 16px;
+      background: rgba(255, 0, 0, 0.1);
+      color: #d32f2f;
+      border-radius: 12px;
+      max-width: 75%;
+      align-self: flex-start;
+      margin-top: 16px;
+    ">
+      \${message}
+    </div>
+  \`;
+}
             const styleSheet = document.createElement('style');
             styleSheet.innerText = \`
               @keyframes slide-in {
@@ -1495,6 +1828,9 @@ router.get('/script.js', async (req, res) => {
     res.status(500).send('Error serving chatbot script');
   }
 })
+
+
+
 
 
 

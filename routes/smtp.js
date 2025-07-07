@@ -7,22 +7,27 @@ const router = express.Router();
 
 router.use(express.json());
 
-router.post('/send-email', async (req, res) => {
-  const { userId, to, subject, html } = req.body;
 
-  // Basic input validation
-  if (!userId || !to || !subject || !html) {
+router.post('/send-email', async (req, res) => {
+  const { userId, to, subject, html, type } = req.body;
+
+  console.log('[Backend] Received send-email request:', { userId, to, subject, type, htmlLength: html?.length });
+
+  // Validate required fields
+  if (!userId || !subject || !html) {
+    console.error('[Backend] Missing required fields:', { userId, subject, html });
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   try {
-    // Fetch SMTP config from database
+    // Fetch SMTP configuration
     const smtpConfig = await SmtpConfig.findOne({ userId });
-    if (!smtpConfig || !smtpConfig.host || !smtpConfig.port || !smtpConfig.username) {
-      return res.status(404).json({ error: 'SMTP configuration not found for user' });
+    if (!smtpConfig || !smtpConfig.host || !smtpConfig.port || !smtpConfig.username || !smtpConfig.password) {
+      console.error('[Backend] Invalid SMTP configuration for user:', userId, smtpConfig);
+      return res.status(404).json({ error: 'SMTP configuration not found or incomplete' });
     }
 
-    // Create a Nodemailer transporter
+    // Create transporter
     const transporter = nodemailer.createTransport({
       host: smtpConfig.host,
       port: parseInt(smtpConfig.port),
@@ -34,20 +39,57 @@ router.post('/send-email', async (req, res) => {
       connectionTimeout: 10000,
     });
 
-    // Send email
+    // Verify SMTP connection
+    try {
+      await transporter.verify();
+      console.log('[Backend] SMTP connection verified for:', smtpConfig.username);
+    } catch (verifyError) {
+      console.error('[Backend] SMTP verification failed:', {
+        message: verifyError.message,
+        code: verifyError.code,
+        response: verifyError.response,
+        stack: verifyError.stack
+      });
+      return res.status(500).json({ error: 'SMTP verification failed', details: verifyError.message });
+    }
+
+    // Use the 'to' field directly, ensuring it's an array or single email
+    const recipients = Array.isArray(to) ? to : [to].filter(email => email);
+    const validRecipients = [...new Set(recipients.filter(email => email && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email)))];
+    
+    console.log('[Backend] Prepared email recipients:', validRecipients);
+    if (validRecipients.length === 0) {
+      console.error('[Backend] No valid recipients provided:', recipients);
+      return res.status(400).json({ error: 'No valid recipients provided' });
+    }
+
+    // Construct mail options
     const mailOptions = {
       from: smtpConfig.username,
-      to:smtpConfig.username,
+      to: validRecipients,
       subject,
-      html,
+      html
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log('[Backend] Email sent successfully to:', to); // Replace with proper logging
+    console.log('[Backend] Sending email with options:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      htmlLength: mailOptions.html?.length
+    });
+
+    // Send email
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[Backend] Email sent successfully to:', mailOptions.to, 'Message ID:', info.messageId);
     res.status(200).json({ message: 'Email sent successfully' });
   } catch (error) {
-    console.error('[Backend] Failed to send email:', error); // Replace with proper logging
-    res.status(500).json({ error: 'Failed to send email. Please check your SMTP configuration.' });
+    console.error('[Backend] Failed to send email:', {
+      message: error.message,
+      code: error.code,
+      response: error.response,
+      stack: error.stack
+    });
+    res.status(500).json({ error: 'Failed to send email', details: error.message });
   }
 });
 

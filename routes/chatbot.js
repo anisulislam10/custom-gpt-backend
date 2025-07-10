@@ -71,8 +71,9 @@ router.get('/:flowId/:userId', async (req, res) => {
 // }
 
 
+
     // Serve chatbot data
-    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' http://localhost:5000; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' http://localhost:5000");
+    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://back.techrecto.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://back.techrecto.com");
 
     res.send(`
       <!DOCTYPE html>
@@ -659,7 +660,7 @@ router.get('/script.js', async (req, res) => {
             let nodes = [];
             let edges = [];
 
-            const fetchUrl = \`http://localhost:5000/api/flow/\${config.userId}/\${config.flowId}\`;
+            const fetchUrl = \`https://back.techrecto.com/api/flow/\${config.userId}/\${config.flowId}\`;
           fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
   .then((response) => {
     if (!response.ok) {
@@ -1235,7 +1236,7 @@ async function handleFormSubmission(node, formData) {
   const email = formData.email || config.userEmail;
 
   try {
-    const response = await fetch('http://localhost:5000/api/chatbot/form-responses', {
+    const response = await fetch('https://back.techrecto.com/api/chatbot/form-responses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1360,7 +1361,7 @@ async function handleFlowCompletion(currentNode) {
 
 
       // Fetch SMTP configuration
-      const smtpResponse = await fetch(\`http://localhost:5000/api/smtp/get/\${config.userId}\`);
+      const smtpResponse = await fetch(\`https://back.techrecto.com/api/smtp/get/\${config.userId}\`);
       if (!smtpResponse.ok) throw new Error(\`Failed to get SMTP config: \${smtpResponse.statusText}\`);
       const smtpConfig = await smtpResponse.json();
 
@@ -1370,7 +1371,7 @@ async function handleFlowCompletion(currentNode) {
           subject: \`Form Submission Confirmation\`,
           html: buildFormEmailHtml()
         };
-        const formEmailResponse = await fetch('http://localhost:5000/api/smtp/send-email', {
+        const formEmailResponse = await fetch('https://back.techrecto.com/api/smtp/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1392,7 +1393,7 @@ async function handleFlowCompletion(currentNode) {
         subject: \`Conversation Summary: \${flowName || 'Chat'}\`,
         html: buildFullEmailHtml()
       };
-      const fullEmailResponse = await fetch('http://localhost:5000/api/smtp/send-email', {
+      const fullEmailResponse = await fetch('https://back.techrecto.com/api/smtp/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1503,7 +1504,7 @@ async function saveInteraction(node, userInput, chatHistory = null) {
     payload.chatHistory = chatHistory;
   }
 
-  const response = await fetch('http://localhost:5000/api/chatbot/interactions', {
+  const response = await fetch('https://back.techrecto.com/api/chatbot/interactions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1558,7 +1559,7 @@ async function sendCompletionEmail(currentNode) {
 }
 
 async function getSmtpConfig() {
-  const response = await fetch(\`http://localhost:5000/api/smtp/get/\${config.userId}\`);
+  const response = await fetch(\`https://back.techrecto.com/api/smtp/get/\${config.userId}\`);
   if (!response.ok) {
     throw new Error(\`SMTP config failed: \${response.statusText}\`);
   }
@@ -1597,7 +1598,7 @@ function buildEmailContent() {
 }
 
 async function sendEmail(to, content) {
-  const response = await fetch('http://localhost:5000/api/smtp/send-email', {
+  const response = await fetch('https://back.techrecto.com/api/smtp/send-email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

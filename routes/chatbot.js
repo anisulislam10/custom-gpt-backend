@@ -7,7 +7,6 @@ const FormResponse = require('../models/FormResponse');
 
 // GET /:flowId/:userId - Serve the chatbot HTML
 router.get('/:flowId/:userId', async (req, res) => {
-  console.log(`[Chatbot] Serving chatbot for flowId: ${req.params.flowId}, userId: ${req.params.userId}, domain: ${req.query.domain || 'not provided'}`);
   
   try {
     const { flowId, userId } = req.params;
@@ -17,7 +16,6 @@ router.get('/:flowId/:userId', async (req, res) => {
 
     // Validate input parameters
     if (!flowId || !userId || (!isPreview && !domain)) {
-      console.error(`[Chatbot] Missing parameters - flowId: ${flowId}, userId: ${userId}, domain: ${domain}`);
       return res.status(400).json({ message: 'Missing flowId, userId, or domain' });
     }
 
@@ -74,7 +72,7 @@ router.get('/:flowId/:userId', async (req, res) => {
 
 
     // Serve chatbot data
-    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://back.techrecto.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' https://back.techrecto.com");
+    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' http://localhost:5000; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*; frame-ancestors *; connect-src 'self' http://localhost:5000");
 
     res.send(`
       <!DOCTYPE html>
@@ -102,7 +100,6 @@ router.get('/:flowId/:userId', async (req, res) => {
 
 // GET /config.js - Serve configuration script
 router.get('/config.js', (req, res) => {
-  console.log('[Chatbot] Serving config script');
   const { flowId, userId, primary, secondary, background, text, name, avatar } = req.query;
   const script = `
     (function () {
@@ -128,7 +125,6 @@ router.get('/config.js', (req, res) => {
 
 router.get('/script.js', async (req, res) => {
   try {
-    console.log('[Chatbot] Serving chatbot script');
 
     const script = `
       // Safe condition evaluation function to replace eval
@@ -156,34 +152,25 @@ router.get('/script.js', async (req, res) => {
           }
           return false; // Default to false if condition is invalid
         } catch (error) {
-          console.error('[Chatbot] Error in safeEvaluateCondition:', error.message);
           return false;
         }
       };
 
       window.initChatbot = function () {
        if (window.chatbotInitialized) {
-    console.log('[Chatbot] Already initialized, skipping');
     return;
   }
   window.chatbotInitialized = true; 
-        console.log('[Chatbot] Initializing chatbot');
         
         // Delay initialization to ensure DOM is ready
         setTimeout(() => {
           try {
-            console.log('[Chatbot] DOM readiness check:', {
-              documentBody: !!document.body,
-              documentReadyState: document.readyState
-            });
-
+           
             const config = window.ChatbotConfig || {};
-            console.log('[Chatbot] Config:', config);
 
             // Check for chatbot-container, create if not found
             let container = document.getElementById('chatbot-container');
             if (!container) {
-              console.log('[Chatbot] Creating chatbot-container dynamically');
               container = document.createElement('div');
               container.id = 'chatbot-container';
               container.style.width = '100%';
@@ -191,7 +178,6 @@ router.get('/script.js', async (req, res) => {
               container.style.position = 'relative';
               try {
                 document.body.appendChild(container);
-                console.log('[Chatbot] Container appended:', document.getElementById('chatbot-container'));
               } catch (e) {
                 console.error('[Chatbot] Failed to append container:', e.message);
                 return;
@@ -419,7 +405,6 @@ router.get('/script.js', async (req, res) => {
             \`;
             try {
               document.body.appendChild(toggleIcon);
-              console.log('[Chatbot] Toggle button appended:', document.getElementById('chatbot-toggle'));
             } catch (e) {
               console.error('[Chatbot] Failed to append toggle button:', e.message);
               return;
@@ -446,24 +431,13 @@ router.get('/script.js', async (req, res) => {
               } catch (e) {
                 console.error('[Chatbot] Error sending postMessage:', e.message);
               }
-              console.log('[Chatbot] Set closed state:', {
-                display: chatbotWrapper.style.display,
-                pointerEvents: chatbotWrapper.style.pointerEvents,
-                opacity: chatbotWrapper.style.opacity,
-                visibility: chatbotWrapper.style.visibility,
-                zIndex: chatbotWrapper.style.zIndex,
-                toggleInDOM: document.body.contains(toggleIcon),
-                toggleClasses: toggleIcon.className,
-                isChatbotOpen
-              });
+             
             };
             setClosedState();
 
             // Toggle chatbot visibility
             const toggleChatbot = () => {
-              console.log('[Chatbot] toggleChatbot called, isChatbotOpen:', isChatbotOpen);
               if (!isChatbotOpen) {
-                console.log('[Chatbot] Opening chatbot');
                 chatbotWrapper.style.display = 'flex';
                 chatbotWrapper.style.pointerEvents = 'auto';
                 chatbotWrapper.style.opacity = '0';
@@ -480,7 +454,6 @@ router.get('/script.js', async (req, res) => {
                 toggleIcon.classList.remove('chatbot-toggle-visible');
                 if (document.body.contains(toggleIcon)) {
                   toggleIcon.remove();
-                  console.log('[Chatbot] Toggle removed from DOM');
                 }
                 isChatbotOpen = true;
                 try {
@@ -493,16 +466,7 @@ router.get('/script.js', async (req, res) => {
                 setClosedState();
                 isChatbotOpen = false;
               }
-              console.log('[Chatbot] Chatbot state after toggle:', {
-                display: chatbotWrapper.style.display,
-                pointerEvents: chatbotWrapper.style.pointerEvents,
-                opacity: chatbotWrapper.style.opacity,
-                visibility: chatbotWrapper.style.visibility,
-                zIndex: chatbotWrapper.style.zIndex,
-                toggleInDOM: document.body.contains(toggleIcon),
-                toggleClasses: toggleIcon.className,
-                isChatbotOpen
-              });
+              
               updateResponsiveStyles();
             };
 
@@ -588,7 +552,6 @@ router.get('/script.js', async (req, res) => {
 
             // Responsive styles
             const updateResponsiveStyles = () => {
-              console.log('[Chatbot] updateResponsiveStyles called, isChatbotOpen:', isChatbotOpen);
               if (window.innerWidth <= 480) {
                 if (isChatbotOpen) {
                   chatbotWrapper.style.width = '100vw';
@@ -628,22 +591,11 @@ router.get('/script.js', async (req, res) => {
                 document.body.appendChild(toggleIcon);
                 toggleIcon.classList.remove('chatbot-toggle-hidden');
                 toggleIcon.classList.add('chatbot-toggle-visible');
-                console.log('[Chatbot] Toggle appended to DOM by updateResponsiveStyles');
               } else if (isChatbotOpen && document.body.contains(toggleIcon)) {
                 toggleIcon.remove();
                 console.log('[Chatbot] Toggle removed from DOM by updateResponsiveStyles');
               }
-              console.log('[Chatbot] Responsive styles updated:', {
-                device: window.innerWidth <= 480 ? 'mobile' : 'desktop',
-                toggleInDOM: document.body.contains(toggleIcon),
-                toggleClasses: toggleIcon.className,
-                chatbotDisplay: chatbotWrapper.style.display,
-                chatbotPointerEvents: chatbotWrapper.style.pointerEvents,
-                chatbotOpacity: chatbotWrapper.style.opacity,
-                chatbotVisibility: chatbotWrapper.style.visibility,
-                chatbotZIndex: chatbotWrapper.style.zIndex,
-                isChatbotOpen
-              });
+             
             };
 
             // Debounce resize event
@@ -658,12 +610,7 @@ router.get('/script.js', async (req, res) => {
 
             // Debug DOM state
             setTimeout(() => {
-              console.log('[Chatbot] Final DOM state:', {
-                container: !!document.getElementById('chatbot-container'),
-                toggle: !!document.getElementById('chatbot-toggle'),
-                wrapper: !!document.getElementById('chatbot-wrapper'),
-                bodyChildren: Array.from(document.body.children).map(el => el.id || el.tagName)
-              });
+            
             }, 1000);
 
             if (!config.userId || !config.flowId) {
@@ -712,8 +659,7 @@ router.get('/script.js', async (req, res) => {
             let nodes = [];
             let edges = [];
 
-            const fetchUrl = \`https://back.techrecto.com/api/flow/\${config.userId}/\${config.flowId}\`;
-            console.log('[Chatbot] Fetching flow from:', fetchUrl);
+            const fetchUrl = \`http://localhost:5000/api/flow/\${config.userId}/\${config.flowId}\`;
           fetch(fetchUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
   .then((response) => {
     if (!response.ok) {
@@ -722,7 +668,6 @@ router.get('/script.js', async (req, res) => {
     return response.json();
   })
   .then((flow) => {
-    console.log('[Chatbot] Flow data received:', flow);
     if (!flow || !Array.isArray(flow.nodes) || !Array.isArray(flow.edges)) {
       throw new Error('Invalid flow data: nodes or edges missing or not arrays');
     }
@@ -785,6 +730,10 @@ router.get('/script.js', async (req, res) => {
               });
 
             const renderChat = () => {
+//              if (container.querySelector('.completion-summary')) {
+  //  console.log('[Chatbot] Skipping renderChat: Completion summary already present');
+    // return;
+  // }
             const messages = container.querySelector('.chatbot-messages');
   const inputWrapper = container.querySelector('.chatbot-input');
   const currentNode = nodes.find((n) => n.id === currentNodeId);
@@ -845,59 +794,65 @@ const existingMessageIds = new Set(
                         ">\${timestamp}</span>
                       </div>
                     \`;
-                  } else if (node.type === 'custom' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
-                    html += \`
-                      <div class="message bot-message" style="
-                        background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-                        backdrop-filter: blur(5px);
-                        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                        padding: 12px 16px;
-                        border-radius: 12px 12px 12px 4px;
-                        max-width: 75%;
-                        align-self: flex-start;
-                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                        animation: slide-in 0.3s ease;
-                      ">
-                        <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'Please select an option'}</p>
-                        \${userInput ? '' : \`
-                          <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
-                            \${node.data.options
-                              .map(
-                                (opt, i) => \`
-                                  <button
-                                    data-option-index="\${i}"
-                                    style="
-                                      background: \${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'};
-                                      backdrop-filter: blur(5px);
-                                      color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                                      padding: 10px 20px;
-                                      border-radius: 8px;
-                                      border: none;
-                                      cursor: pointer;
-                                      font-size: 14px;
-                                      font-weight: 500;
-                                      transition: background 0.2s;
-                                    "
-                                    onmouseover="this.style.background='\${isDarkMode ? 'rgba(107, 114, 128, 0.9)' : 'rgba(209, 213, 219, 0.9)'}'"
-                                    onmouseout="this.style.background='\${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'}'"
-                                  >
-                                    \${opt}
-                                  </button>
-                                \`
-                              )
-                              .join('')}
-                          </div>
-                        \`}
-                        <span style="
-                          font-size: 12px;
-                          color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
-                          opacity: 0.6;
-                          margin-top: 8px;
-                          display: block;
-                        ">\${timestamp}</span>
-                      </div>
-                    \`;
-                  } else if (node.type === 'condition' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
+                  // In the renderChat function, update the custom node section to show all options:
+} else if (node.type === 'custom' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
+    html += \`
+      <div class="message bot-message" style="
+        background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+        backdrop-filter: blur(5px);
+        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+        padding: 12px 16px;
+        border-radius: 12px 12px 12px 4px;
+        max-width: 75%;
+        align-self: flex-start;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        animation: slide-in 0.3s ease;
+      ">
+        <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || 'Please select an option'}</p>
+        \${userInput ? \`
+          <div style="margin-top: 8px; padding: 8px; background: \${isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(229, 231, 235, 0.5)'}; border-radius: 8px;">
+            <strong>You selected:</strong> \${userInput}
+          </div>
+        \` : \`
+          <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+          \${node.data.options
+              .map(
+                (opt, i) => \`
+                  <button
+                    data-option-index="\${i}"
+                    style="
+                      background: \${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'};
+                      backdrop-filter: blur(5px);
+                      color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+                      padding: 10px 20px;
+                      border-radius: 8px;
+                      border: none;
+                      cursor: pointer;
+                      font-size: 14px;
+                      font-weight: 500;
+                      transition: background 0.2s;
+                    "
+                    onmouseover="this.style.background='\${isDarkMode ? 'rgba(107, 114, 128, 0.9)' : 'rgba(209, 213, 219, 0.9)'}'"
+                    onmouseout="this.style.background='\${isDarkMode ? 'rgba(75, 85, 99, 0.9)' : 'rgba(229, 231, 235, 0.9)'}'"
+                  >
+                    \${opt}
+                  </button>
+                \`
+              )
+              .join('')}
+          </div>
+      \`}
+        <span style="
+          font-size: 12px;
+          color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+          opacity: 0.6;
+          margin-top: 8px;
+          display: block;
+        ">\${timestamp}</span>
+      </div>
+    \`;
+}
+ else if (node.type === 'condition' && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
                     html += \`
                       <div class="message bot-message" style="
                         background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
@@ -1012,29 +967,25 @@ const existingMessageIds = new Set(
                       </div>
                     \`;
                   } else if ((node.type === 'singleInput' || node.type === 'aiinput') && (!chatHistory[index + 1] || chatHistory[index + 1].node.id !== node.id)) {
-                    html += \`
-                      <div class="message bot-message" style="
-                        background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-                        backdrop-filter: blur(5px);
-                        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-                        padding: 12px 16px;
-                        border-radius: 12px 12px 12px 4px;
-                        max-width: 75%;
-                        align-self: flex-start;
-                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                        animation: slide-in 0.3s ease;
-                      ">
-                        <p style="margin: 0; font-size: 15px; font-weight: 400;">\${node.data.label || (node.type === 'aiinput' ? 'Assistant' : 'Please enter your response')}</p>
-                        <span style="
-                          font-size: 12px;
-                          color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
-                          opacity: 0.6;
-                          margin-top: 4px;
-                          display: block;
-                        ">\${timestamp}</span>
-                      </div>
-                    \`;
-                  }
+  // Only show bot message if there is no user input for this node yet
+  if (!userInput) {
+    html += \`
+      <div class="message bot-message" style="
+        background:\${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+        backdrop-filter: blur(5px);
+        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+        padding: 12px 16px;
+        border-radius: 12px 12px 12px 4px;
+        max-width: 75%;
+        align-self: flex-start;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        animation: slide-in 0.3s ease;
+      ">
+        
+      </div>
+    \`;
+  }
+}
 
                   if (userInput) {
                     html += \`
@@ -1205,13 +1156,11 @@ const autoAdvanceTextNodes = () => {
       const sourceHandle = conditionResult ? 'yes' : 'no';
       const nextEdge = edges.find((edge) => edge.source === current.id && edge.sourceHandle === sourceHandle);
       if (!nextEdge) {
-        console.log('[Chatbot] No next edge for condition node, ending:', current.id);
         handleInteraction(current.id, null);
         break;
       }
       const nextNode = nodes.find((n) => n.id === nextEdge.target);
       if (!nextNode) {
-        console.log('[Chatbot] No next node for condition edge, ending:', current.id);
         handleInteraction(current.id, null);
         break;
       }
@@ -1221,13 +1170,11 @@ const autoAdvanceTextNodes = () => {
     } else {
       const nextEdge = edges.find((edge) => edge.source === current.id);
       if (!nextEdge) {
-        console.log('[Chatbot] No next edge for text node, treating as end:', current.id);
         handleInteraction(current.id, null); // Trigger end node check
         break;
       }
       const nextNode = nodes.find((n) => n.id === nextEdge.target);
       if (!nextNode) {
-        console.log('[Chatbot] No next node for text edge, treating as end:', current.id);
         handleInteraction(current.id, null); // Trigger end node check
         break;
       }
@@ -1241,7 +1188,6 @@ const autoAdvanceTextNodes = () => {
 };
 
 const handleInteraction = async (nodeId, userInput, optionIndex = null) => {
-  console.log('[Chatbot] Interaction started:', { nodeId, userInput, optionIndex });
   
   try {
     const currentNode = nodes.find(n => n.id === nodeId);
@@ -1261,12 +1207,7 @@ const handleInteraction = async (nodeId, userInput, optionIndex = null) => {
     const isEndNode = currentNode.data?.isEndNode || 
                      edges.filter(e => e.source === nodeId).length === 0;
     
-    console.log('[Chatbot] End node check:', {
-      nodeId: currentNode.id,
-      isEndNode,
-      isEndNodeFlag: currentNode.data?.isEndNode,
-      outgoingEdges: edges.filter(e => e.source === nodeId)
-    });
+   
 
     if (isEndNode) {
       console.log('[Chatbot] End node detected:', currentNode.id);
@@ -1275,16 +1216,13 @@ const handleInteraction = async (nodeId, userInput, optionIndex = null) => {
     }
 
     const nextEdge = findNextEdge(currentNode, nodeId, userInput, optionIndex);
-    console.log('[Chatbot] Next edge result:', { nodeId, nextEdge });
     if (nextEdge) {
       await handleNextNode(nextEdge, userInput);
     } else {
-      console.warn('[Chatbot] No next edge found, treating as end node:', currentNode.id);
       await handleFlowCompletion(currentNode);
     }
 
   } catch (error) {
-    console.error('[Chatbot] Interaction error:', error);
     showErrorMessage(error.message);
     isTyping = false;
   }
@@ -1297,7 +1235,7 @@ async function handleFormSubmission(node, formData) {
   const email = formData.email || config.userEmail;
 
   try {
-    const response = await fetch('https://back.techrecto.com/api/chatbot/form-responses', {
+    const response = await fetch('http://localhost:5000/api/chatbot/form-responses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1316,29 +1254,21 @@ async function handleFormSubmission(node, formData) {
       throw new Error(\`Form submission failed: \${response.statusText}\`);
     }
 
-    console.log('[Chatbot] Form saved:', { email, formId: node.id });
   } catch (error) {
-    console.error('[Chatbot] Form save error:', error);
     throw new Error('Failed to save form data');
   }
 }
 
 function findNextEdge(currentNode, nodeId, userInput, optionIndex) {
   const outgoingEdges = edges.filter(e => e.source === nodeId);
-  console.log('[Chatbot] Finding next edge from:', {
-    nodeId,
-    nodeType: currentNode.type,
-    outgoingEdges: outgoingEdges
-  });
+
 
   if (currentNode.type === 'custom' && optionIndex !== null) {
     const sourceHandle = \`option-\${optionIndex}\`;
     const edge = edges.find(e => e.source === nodeId && e.sourceHandle === sourceHandle);
     if (!edge) {
-      console.warn('[Chatbot] No edge found for custom node option:', { nodeId, sourceHandle });
       return null;
     }
-    console.log('[Chatbot] Custom node edge selected:', { sourceHandle, edge });
     return edge;
   }
 
@@ -1354,14 +1284,9 @@ function findNextEdge(currentNode, nodeId, userInput, optionIndex) {
     const sourceHandle = conditionResult ? 'yes' : 'no';
     const edge = edges.find(e => e.source === nodeId && e.sourceHandle === sourceHandle);
     if (!edge) {
-      console.warn('[Chatbot] No edge found for condition node:', { nodeId, sourceHandle });
       return null;
     }
-    console.log('[Chatbot] Condition node edge selected:', {
-      condition: currentNode.data.label,
-      result: conditionResult,
-      edge
-    });
+    
     return edge;
   }
 
@@ -1369,14 +1294,11 @@ function findNextEdge(currentNode, nodeId, userInput, optionIndex) {
     const edge = outgoingEdges[0];
     const targetNode = nodes.find(n => n.id === edge.target);
     if (!targetNode) {
-      console.warn('[Chatbot] Invalid edge detected, no target node:', edge);
       return null;
     }
-    console.log('[Chatbot] Selecting default edge:', edge);
     return edge;
   }
 
-  console.warn('[Chatbot] No valid outgoing edges found for node:', nodeId);
   return null;
 }
 async function handleNextNode(nextEdge, userInput) {
@@ -1387,68 +1309,68 @@ async function handleNextNode(nextEdge, userInput) {
   chatHistory.push({ node: nextNode, userInput: null });
 
   try {
-    await saveInteraction(nextNode, userInput);
-    console.log('[Chatbot] Moving to next node:', nextNode.id);
     
     // Auto-advance for text/condition nodes
     if (nextNode.type === 'text' || nextNode.type === 'condition') {
       autoAdvanceTextNodes();
     }
   } catch (error) {
-    console.error('[Chatbot] Node transition failed:', error);
     throw error;
   }
 }
-
 async function handleFlowCompletion(currentNode) {
-  console.log('[Chatbot] Handling flow completion for node:', {
-    id: currentNode.id,
-    type: currentNode.type,
-    label: currentNode.data?.label,
-    hasForms: chatHistory.filter(e => e.node.type === 'form' && e.userInput).length > 0,
-    sendEmailFlag: currentNode.data?.sendEmailOnCompletion,
-    hasSentEmail: !!window.hasSentCompletionEmail
-  });
+ 
 
   isTyping = false;
-
-  if (!currentNode.data.label?.toLowerCase().includes('thank')) {
-    renderCompletionMessage();
-  }
 
   const formEntries = chatHistory.filter(e => e.node.type === 'form' && e.userInput);
   const shouldSendEmail = (formEntries.length > 0 || currentNode.data?.sendEmailOnCompletion) &&
                          !window.hasSentCompletionEmail;
 
-  console.log('[Chatbot] Email sending decision:', {
-    shouldSendEmail,
-    formEntriesCount: formEntries.length,
-    hasEmailFlag: currentNode.data?.sendEmailOnCompletion,
-    emailNotSent: !window.hasSentCompletionEmail
-  });
+  
 
   if (shouldSendEmail) {
+   try {
+    await saveInteraction(currentNode, null, chatHistory); // Pass chatHistory
+  } catch (error) {
+    console.error('[Chatbot] Error saving final interaction:', error);
+  }
+   try {
+    setTimeout(() => {
+      renderCompletionMessage();
+      // Force UI update
+      const chatbotWrapper = container.querySelector('#chatbot-wrapper');
+      if (chatbotWrapper) {
+        chatbotWrapper.style.display = 'flex';
+        chatbotWrapper.style.pointerEvents = 'auto';
+        chatbotWrapper.style.opacity = '1';
+        chatbotWrapper.style.visibility = 'visible';
+        chatbotWrapper.style.zIndex = '9999';
+        isChatbotOpen = true;
+      }
+      updateResponsiveStyles();
+    }, 100); // Small delay to ensure DOM is ready
+  } catch (error) {
+    showErrorMessage(\`Failed to render summary: \${error.message}\`);
+  }
     try {
       const userEmail = formEntries.length > 0 
         ? formEntries[formEntries.length - 1].userInput.email || config.userEmail
         : config.userEmail;
 
-      console.log('[Chatbot] Preparing emails:', { userEmail });
 
       // Fetch SMTP configuration
-      const smtpResponse = await fetch(\`https://back.techrecto.com/api/smtp/get/\${config.userId}\`);
+      const smtpResponse = await fetch(\`http://localhost:5000/api/smtp/get/\${config.userId}\`);
       if (!smtpResponse.ok) throw new Error(\`Failed to get SMTP config: \${smtpResponse.statusText}\`);
       const smtpConfig = await smtpResponse.json();
-      console.log('[Chatbot] SMTP Config:', smtpConfig);
 
       // Email 1: Form submission details to userEmail
       if (formEntries.length > 0 && userEmail) {
-        console.log('[Chatbot] Sending form email to:', userEmail);
         const formEmailContent = {
           subject: \`Form Submission Confirmation\`,
           html: buildFormEmailHtml()
         };
-        const formEmailResponse = await fetch('https://back.techrecto.com/api/smtp/send-email', {
+        const formEmailResponse = await fetch('http://localhost:5000/api/smtp/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1463,24 +1385,22 @@ async function handleFlowCompletion(currentNode) {
           const errorText = await formEmailResponse.text();
           throw new Error(\`Form email send failed: \${formEmailResponse.statusText} - \${errorText}\`);
         }
-        console.log('[Chatbot] Form email sent successfully to:', userEmail);
       }
 
       // Email 2: Full conversation summary to SMTP username
-      console.log('[Chatbot] Sending full conversation email to:', smtpConfig.username);
       const fullEmailContent = {
         subject: \`Conversation Summary: \${flowName || 'Chat'}\`,
         html: buildFullEmailHtml()
       };
-      const fullEmailResponse = await fetch('https://back.techrecto.com/api/smtp/send-email', {
+      const fullEmailResponse = await fetch('http://localhost:5000/api/smtp/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: config.userId,
-          to: smtpConfig.username, // Send to SMTP username only
+          to: smtpConfig.username,
           subject: fullEmailContent.subject,
           html: fullEmailContent.html,
-          type: 'form' // Still using 'form' to align with server logic
+          type: 'form'
         })
       });
       if (!fullEmailResponse.ok) {
@@ -1489,16 +1409,12 @@ async function handleFlowCompletion(currentNode) {
       }
 
       window.hasSentCompletionEmail = true;
-      showSuccessMessage(\`Summary sent to \${userEmail} and conversation details sent to \${smtpConfig.username}\`);
-      console.log('[Chatbot] Emails sent successfully');
     } catch (emailError) {
-      console.error('[Chatbot] Email error:', emailError);
       showErrorMessage(\`Failed to send emails: \${emailError.message}\`);
     }
   }
 
-  isTyping = false;
-  requestAnimationFrame(renderChat);
+ 
 }
 // Generate HTML for the full conversation summary (sent to SMTP username)
 function buildFullEmailHtml() {
@@ -1543,10 +1459,26 @@ function buildFormEmailHtml() {
   const formEntries = chatHistory.filter(e => e.node.type === 'form' && e.userInput);
   return \`
     <div style="font-family: Arial; max-width: 600px; margin: auto; padding: 20px;">
-      <h2>Form Submission Confirmation</h2>
+      <h2>Conversation Summary</h2>
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px;">
+      \${chatHistory.map(entry => {
+          // Bot responses: text, custom, condition; User inputs: form, singleInput, aiinput
+          const isBot = ['text', 'custom', 'condition'].includes(entry.node.type) && !entry.userInput;
+          return \`
+            <div style="margin-bottom: 10px; padding: 10px; background: white; border-radius: 4px;">
+              <strong>\${isBot ? 'Assistant' : 'You'}:</strong>
+              \${entry.userInput ? 
+                (typeof entry.userInput === 'object' ? 
+                  Object.entries(entry.userInput).map(([k, v]) => \`\${k}: \${v}\`).join('<br>') : 
+                  entry.userInput) : 
+                (entry.node.data?.label || 'No message')}
+            </div>
+          \`;
+        }).join('')}
+      </div>
       \${formEntries.length > 0 ? \`
         <div style="margin-top: 20px;">
-          <h3>Your Submission Details</h3>
+          <h3>Form Submission Details</h3>
           \${formEntries.map(entry => \`
             <div style="background: #e9ecef; padding: 10px; border-radius: 4px; margin-top: 10px;">
               \${Object.entries(entry.userInput).map(([k, v]) => \`
@@ -1555,32 +1487,39 @@ function buildFormEmailHtml() {
             </div>
           \`).join('')}
         </div>
-      \` : '<p>No form submissions found.</p>'}
+      \` : ''}
     </div>
   \`;
 }
-async function saveInteraction(node, userInput) {
-  const response = await fetch('https://back.techrecto.com/api/chatbot/interactions', {
+async function saveInteraction(node, userInput, chatHistory = null) {
+  const payload = {
+    userId: config.userId,
+    flowId: config.flowId,
+    date: new Date().toISOString().split('T')[0],
+  };
+
+  // Include chatHistory if provided (e.g., at flow completion)
+  if (chatHistory) {
+    payload.chatHistory = chatHistory;
+  }
+
+  const response = await fetch('http://localhost:5000/api/chatbot/interactions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      userId: config.userId,
-      flowId: config.flowId,
-      nodeId: node.id,
-      userInput: userInput || null,
-      botResponse: node.data.label || 'Bot response',
-      date: new Date().toISOString().split('T')[0],
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     throw new Error(\`Failed to save interaction: \${response.statusText}\`);
   }
 
+  const result = await response.json();
   console.log('[Chatbot] Interaction saved:', {
     nodeId: node.id,
     userInput,
-    botResponse: node.data.label
+    botResponse: node.data.label,
+    uniqueId: result.uniqueId,
+    chatHistoryIncluded: !!chatHistory,
   });
 }
 
@@ -1589,11 +1528,7 @@ function checkEmailConditions(currentNode) {
   const hasEmailFlag = currentNode.data?.sendEmailOnCompletion;
   const emailNotSent = !window.hasSentCompletionEmail;
 
-  console.log('[Chatbot] Email conditions:', {
-    hasForms: formEntries.length > 0,
-    hasEmailFlag,
-    emailNotSent
-  });
+ 
 
   return (formEntries.length > 0 || hasEmailFlag) && emailNotSent;
 }
@@ -1618,13 +1553,12 @@ async function sendCompletionEmail(currentNode) {
     showSuccessMessage(\`Summary sent to \${email}\`);
     
   } catch (error) {
-    console.error('[Chatbot] Email error:', error);
     showErrorMessage(\`Email failed: \${error.message}\`);
   }
 }
 
 async function getSmtpConfig() {
-  const response = await fetch(\`https://back.techrecto.com/api/smtp/get/\${config.userId}\`);
+  const response = await fetch(\`http://localhost:5000/api/smtp/get/\${config.userId}\`);
   if (!response.ok) {
     throw new Error(\`SMTP config failed: \${response.statusText}\`);
   }
@@ -1663,7 +1597,7 @@ function buildEmailContent() {
 }
 
 async function sendEmail(to, content) {
-  const response = await fetch('https://back.techrecto.com/api/smtp/send-email', {
+  const response = await fetch('http://localhost:5000/api/smtp/send-email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -1681,32 +1615,147 @@ async function sendEmail(to, content) {
 }
 
 
-
 function renderCompletionMessage() {
-  const messages = container.querySelector('.chatbot-messages');
-  messages.innerHTML += \`
-    <div class="message bot-message" style="
-      background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
-      color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
-      padding: 16px;
-      border-radius: 12px;
-      max-width: 85%;
-      align-self: flex-start;
-      margin-top: 16px;
-    ">
-      <p style="margin: 0;">Thank you! This conversation is now complete.</p>
-      <span style="
-        font-size: 12px;
-        color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
-        opacity: 0.6;
-        display: block;
-        margin-top: 8px;
-      ">\${new Date().toLocaleTimeString()}</span>
-    </div>
-  \`;
-  messages.scrollTop = messages.scrollHeight;
-}
 
+  const messages = container.querySelector('.chatbot-messages');
+  if (!messages) {
+    showErrorMessage('Failed to render summary: Message container not found');
+    return;
+  }
+
+  const formEntries = chatHistory.filter(e => e.node.type === 'form' && e.userInput);
+
+  // Clear any existing typing indicators and previous summaries
+  const typingIndicators = messages.querySelectorAll('.typing-indicator');
+  typingIndicators.forEach(indicator => indicator.remove());
+  const existingSummaries = messages.querySelectorAll('.completion-summary');
+  existingSummaries.forEach(summary => summary.remove());
+
+  // Ensure chatbot is open
+  const chatbotWrapper = container.querySelector('#chatbot-wrapper');
+  if (chatbotWrapper && (chatbotWrapper.style.display === 'none' || chatbotWrapper.style.opacity === '0')) {
+    chatbotWrapper.style.display = 'flex';
+    chatbotWrapper.style.pointerEvents = 'auto';
+    chatbotWrapper.style.opacity = '1';
+    chatbotWrapper.style.visibility = 'visible';
+    chatbotWrapper.style.zIndex = '9999';
+    isChatbotOpen = true;
+    toggleIcon.classList.add('chatbot-toggle-hidden');
+    toggleIcon.classList.remove('chatbot-toggle-visible');
+    if (document.body.contains(toggleIcon)) {
+      toggleIcon.remove();
+    }
+    updateResponsiveStyles();
+  }
+
+  try {
+    // Append the summary
+    messages.innerHTML += \`
+      <div class="message bot-message completion-summary" style="
+        background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(243, 244, 246, 0.9)'};
+        backdrop-filter: blur(5px);
+        color: \${isDarkMode ? '#e5e7eb' : '#1f2937'};
+        padding: 16px;
+        border-radius: 12px;
+        max-width: 85%;
+        align-self: flex-start;
+        margin-top: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        z-index: 10000;
+      ">
+        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 12px;">Conversation Summary</h3>
+        <div style="
+          background: \${isDarkMode ? 'rgba(75, 85, 99, 0.7)' : 'rgba(229, 231, 235, 0.7)'};
+          padding: 12px;
+          border-radius: 8px;
+        ">
+          \${chatHistory
+            .map(entry => {
+              const isBot = ['text', 'custom', 'condition'].includes(entry.node.type) && !entry.userInput;
+              const isUser = !isBot && (entry.userInput || ['form', 'singleInput', 'aiinput'].includes(entry.node.type));
+              
+              if (!isBot && !isUser) return '';
+              
+              return \`
+                <div style="
+                  margin-bottom: 10px;
+                  padding: 10px;
+                  background: \${isDarkMode ? 'rgba(55, 65, 81, 0.9)' : 'rgba(255, 255, 255, 0.9)'};
+                  border-radius: 4px;
+                  font-size: 14px;
+                ">
+                  <strong style="color:\${isBot ? config.theme?.primary || '#6366f1' : config.theme?.secondary || '#4f46e5'}">
+                    \${isBot ? 'Assistant' : 'You'}:
+                  </strong>
+                  \${
+                    entry.userInput
+                      ? (typeof entry.userInput === 'object'
+                          ? \`<ul style="list-style: none; padding: 0; margin: 8px 0 0 0;">
+                              \${Object.entries(entry.userInput).map(([k, v]) => \`<li><strong>\${k}:</strong> \${v}</li>\`).join('')}
+                            </ul>\`
+                          : entry.userInput)
+                      : (entry.node.data?.label || 'No message')
+                  }
+                </div>
+              \`;
+            })
+            .filter(Boolean)
+            .join('')}
+        </div>
+        \${formEntries.length > 0 ? \`
+          <div style="margin-top: 16px;">
+            <h4 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Form Submissions</h4>
+            \${formEntries.map(entry => \`
+              <div style="
+                background: \${isDarkMode ? 'rgba(75, 85, 99, 0.7)' : 'rgba(229, 231, 235, 0.7)'};
+                padding: 12px;
+                border-radius: 8px;
+                margin-bottom: 8px;
+                font-size: 14px;
+              ">
+                \${Object.entries(entry.userInput).map(([k, v]) => \`
+                  <div style="margin-bottom: 6px;"><strong>\${k}:</strong> \${v}</div>
+                \`).join('')}
+              </div>
+            \`).join('')}
+          </div>
+        \` : ''}
+        <p style="margin: 16px 0 0; font-size: 15px; font-weight: 500;">
+          Thank you for your interaction! The conversation is now complete.
+        </p>
+        <span style="
+          font-size: 12px;
+          color: \${isDarkMode ? '#9ca3af' : '#6b7280'};
+          opacity: 0.6;
+          display: block;
+          margin-top: 8px;
+        ">\${new Date().toLocaleTimeString()}</span>
+      </div>
+    \`;
+
+    // Force DOM update and scroll to summary
+    messages.scrollTop = messages.scrollHeight;
+    const summaryElement = messages.querySelector('.completion-summary');
+    if (summaryElement) {
+      summaryElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } else {
+      showErrorMessage('Failed to render summary: DOM element not found');
+      // Retry appending after a delay
+      setTimeout(() => {
+        messages.innerHTML += messages.innerHTML; // Re-append to force update
+        const retrySummary = messages.querySelector('.completion-summary');
+        if (retrySummary) {
+          retrySummary.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }, 200);
+    }
+
+    // Debug DOM state
+  
+  } catch (error) {
+    showErrorMessage(\`Failed to render conversation summary: \${error.message}\`);
+  }
+}
 function showSuccessMessage(message) {
   const messages = container.querySelector('.chatbot-messages');
   messages.innerHTML += \`
@@ -1816,7 +1865,6 @@ function showErrorMessage(message) {
             \`;
             document.head.appendChild(styleSheet);
           } catch (e) {
-            console.error('[Chatbot] Error in initChatbot:', e.message);
           }
         }, 500); // Delay to ensure DOM readiness
       };
@@ -1824,7 +1872,6 @@ function showErrorMessage(message) {
     res.set('Content-Type', 'application/javascript');
     res.send(script);
   } catch (error) {
-    console.error('[Chatbot] Error serving chatbot script:', error);
     res.status(500).send('Error serving chatbot script');
   }
 })
@@ -1839,98 +1886,95 @@ function showErrorMessage(message) {
 // POST /interactions - Save a complete interaction
 router.post('/interactions', async (req, res) => {
   try {
-    const { userId, flowId, nodeId, userInput, botResponse } = req.body;
+    const { userId, flowId, chatHistory } = req.body;
 
     // Validate required fields
-    if (!userId || !flowId || !botResponse) {
-      console.error(`[Chatbot] Missing interaction parameters - userId: ${userId}, flowId: ${flowId}, botResponse: ${botResponse}`);
+    if (!userId || !flowId ) {
       return res.status(400).json({ message: 'Missing required interaction parameters' });
     }
 
     // Get current date in YYYY-MM-DD format
-    const currentDate = new Date().toISOString().split('T')[0]; // e.g., "2025-06-30"
+    const currentDate = new Date().toISOString().split('T')[0]; // e.g., "2025-07-10"
+
+    // Get user's IP address
+    const ipAddress = req.ip || 
+                     req.headers['x-forwarded-for']?.split(',')[0].trim() || 
+                     req.socket.remoteAddress || 
+                     null;
 
     // Create and save the interaction
     const interaction = new Interaction({
       userId,
       flowId,
-      nodeId: nodeId || null,
-      userInput: userInput || null,
-      botResponse,
-      date: currentDate, // Add date field
+      
+      date: currentDate,
+      ipAddress,
+      chatHistory: chatHistory || [], // Save chatHistory if provided
     });
 
     await interaction.save();
-    console.log(`[Chatbot] Interaction saved: userId=${userId}, flowId=${flowId}, nodeId=${nodeId}, date=${currentDate}`);
-    res.status(201).json({ message: 'Interaction saved successfully' });
+    res.status(201).json({ message: 'Interaction saved successfully', uniqueId: interaction.uniqueId });
   } catch (error) {
-    console.error('[Chatbot] Error saving interaction:', error.message);
+    console.error('[Interactions] Error saving interaction:', error.message);
     res.status(500).json({ message: 'Failed to save interaction', error: error.message });
   }
 });
 
 // GET /interactions/:flowId/:userId - Fetch all interactions
 // GET /interactions/:flowId/:userId - Fetch all interactions grouped by date
+
 router.get('/interactions/:flowId/:userId', async (req, res) => {
   try {
     const { flowId, userId } = req.params;
 
     // Validate parameters
     if (!flowId || !userId) {
-      console.error(`[Chatbot] Missing parameters - flowId: ${flowId}, userId: ${userId}`);
       return res.status(400).json({ message: 'Missing flowId or userId' });
     }
 
-    // Aggregate interactions grouped by date
-    const interactions = await Interaction.aggregate([
-      {
-        $match: { flowId, userId },
-      },
-      {
-        $sort: { timestamp: 1 }, // Sort by timestamp within each date
-      },
-      {
-        $group: {
-          _id: '$date', // Group by date field
-          interactions: {
-            $push: {
-              _id: '$_id',
-              nodeId: '$nodeId',
-              userInput: '$userInput',
-              botResponse: '$botResponse',
-              timestamp: '$timestamp',
-            },
-          },
-        },
-      },
-      {
-        $sort: { _id: 1 }, // Sort by date
-      },
-      {
-        $project: {
-          date: '$_id',
-          interactions: 1,
-          _id: 0,
-        },
-      },
-    ]);
+    // Fetch interactions from MongoDB
+    const interactions = await Interaction.find({ flowId, userId })
+      .select('date timestamp uniqueId ipAddress chatHistory')
+      .sort({ timestamp: -1 }); // Sort by timestamp descending (newest first)
 
-    console.log(`[Chatbot] Retrieved ${interactions.length} date groups for flowId: ${flowId}, userId: ${userId}`);
-    res.status(200).json(interactions);
+    // Group interactions by date
+    const groupedByDate = interactions.reduce((acc, interaction) => {
+      const date = interaction.date; // YYYY-MM-DD
+      if (!acc[date]) {
+        acc[date] = { date, interactions: [] };
+      }
+      acc[date].interactions.push({
+        _id: interaction._id,
+        uniqueId: interaction.uniqueId,
+        timestamp: interaction.timestamp,
+        ipAddress: interaction.ipAddress,
+        chatHistory: interaction.chatHistory,
+      });
+      return acc;
+    }, {});
+
+    // Convert to array and sort by date descending
+    const result = Object.values(groupedByDate)
+      .map(group => ({
+        date: group.date,
+        interactions: group.interactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
+      }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.status(200).json(result);
   } catch (error) {
-    console.error('[Chatbot] Error fetching interactions:', error.message);
+    console.error('[Interactions] Error fetching interactions:', error.message);
     res.status(500).json({ message: 'Failed to fetch interactions', error: error.message });
   }
-}); 
+});
+
 router.post('/form-responses', async (req, res) => {
-  console.log('[Backend] Received form response:', req.body);
 
   try {
     const { userEmail, userId, flowId, formId, formName, date, submitDate, response, ...customFields } = req.body;
 
     // Validate required fields
     if (!userEmail || !userId || !flowId || !formId || !formName || !date || !submitDate || !response) {
-      console.error('[Backend] Missing required fields:', { userEmail, userId, flowId, formId, formName, date, submitDate, response });
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -1948,10 +1992,8 @@ router.post('/form-responses', async (req, res) => {
     });
 
     await formResponse.save();
-    console.log(`[Backend] Form response saved: userId=${userId}, flowId=${flowId}, formId=${formId}, date=${date}`);
     res.status(201).json({ message: 'Form response saved successfully' });
   } catch (error) {
-    console.error('[Backend] Error saving form response:', error.message);
     res.status(500).json({ error: 'Failed to save form response', details: error.message });
   }
 });

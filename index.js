@@ -21,11 +21,9 @@ const packageRoutes = require('./routes/package');
 const widgetRoutes = require('./routes/widget');
 const embedRoutes = require('./routes/embed');
 const chatbotRoutes = require('./routes/chatbot');
-
 const app = express();
 
 // Middleware & Security
-
 app.use(cors({
   origin: '*', // Or specify allowed origins like ['https://techrecto.com', 'http://localhost:3000']
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

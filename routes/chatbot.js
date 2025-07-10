@@ -1943,6 +1943,7 @@ router.get('/interactions/:flowId/:userId', async (req, res) => {
       if (!acc[date]) {
         acc[date] = { date, interactions: [] };
       }
+      
       acc[date].interactions.push({
         _id: interaction._id,
         uniqueId: interaction.uniqueId,

@@ -25,6 +25,7 @@ const chatbotRoutes = require('./routes/chatbot');
 const app = express();
 
 // Middleware & Security
+
 app.use(cors({
   origin: '*', // Or specify allowed origins like ['https://techrecto.com', 'http://localhost:3000']
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

@@ -5,11 +5,95 @@ const User = require('../models/User');
 const Package = require('../models/packages');
 const Transaction = require('../models/transaction');
 const FormResponse = require('../models/FormResponse');
+const Interaction = require('../models/Interaction');
 
 // Save a new flow
 // routes/flow.js
 
 // Create Flow
+router.get('/statistics/:flowId', async (req, res) => {
+  try {
+    const { flowId } = req.params;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Define date ranges
+    const oneDayAgo = new Date(today);
+    oneDayAgo.setDate(today.getDate() - 1);
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(today.getDate() - 7);
+    const oneMonthAgo = new Date(today);
+    oneMonthAgo.setMonth(today.getMonth() - 1);
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+    // MongoDB aggregation pipeline
+    const stats = await Interaction.aggregate([
+      // Match interactions for the given flowId
+      { $match: { flowId } },
+      // Group by time periods
+      {
+        $group: {
+          _id: null,
+          daily: {
+            $addToSet: {
+              $cond: [
+                { $gte: ['$timestamp', oneDayAgo] },
+                '$uniqueId',
+                null,
+              ],
+            },
+          },
+          weekly: {
+            $addToSet: {
+              $cond: [
+                { $gte: ['$timestamp', oneWeekAgo] },
+                '$uniqueId',
+                null,
+              ],
+            },
+          },
+          monthly: {
+            $addToSet: {
+              $cond: [
+                { $gte: ['$timestamp', oneMonthAgo] },
+                '$uniqueId',
+                null,
+              ],
+            },
+          },
+          yearly: {
+            $addToSet: {
+              $cond: [
+                { $gte: ['$timestamp', oneYearAgo] },
+                '$uniqueId',
+                null,
+              ],
+            },
+          },
+          allTime: { $addToSet: '$uniqueId' },
+        },
+      },
+      // Project to count unique users (excluding null)
+      {
+        $project: {
+          daily: { $size: { $filter: { input: '$daily', cond: { $ne: ['$$this', null] } } } },
+          weekly: { $size: { $filter: { input: '$weekly', cond: { $ne: ['$$this', null] } } } },
+          monthly: { $size: { $filter: { input: '$monthly', cond: { $ne: ['$$this', null] } } } },
+          yearly: { $size: { $filter: { input: '$yearly', cond: { $ne: ['$$this', null] } } } },
+          allTime: { $size: { $filter: { input: '$allTime', cond: { $ne: ['$$this', null] } } } },
+        },
+      },
+    ]);
+
+    // Return stats (default to 0 if no results)
+    const result = stats[0] || { daily: 0, weekly: 0, monthly: 0, yearly: 0, allTime: 0 };
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('[Statistics] Error fetching stats:', error.message);
+    res.status(500).json({ message: 'Failed to fetch statistics', error: error.message });
+  }
+});
 router.get('/response/detail/:responseId', async (req, res) => {
   const { responseId } = req.params;
   console.log('[Backend] Fetching form response details for responseId:', responseId);

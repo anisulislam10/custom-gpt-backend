@@ -1888,6 +1888,8 @@ function showErrorMessage(message) {
 // POST /interactions - Save a complete interaction
 // POST /interactions - Save a complete interaction
 router.post('/interactions', async (req, res) => {
+          console.log("intereaction");
+
   try {
     const { userId, flowId, chatHistory } = req.body;
 
@@ -1911,6 +1913,8 @@ router.post('/interactions', async (req, res) => {
       const geo = geoip.lookup(ipAddress.replace('::ffff:', '')); // Remove IPv6 prefix if present
       country = geo ? geo.country : null; // Get country code (e.g., "US")
     }
+        console.log("intereaction",country);
+
 
     // Create and save the interaction
     const interaction = new Interaction({
@@ -1921,6 +1925,7 @@ router.post('/interactions', async (req, res) => {
       country, // Save country
       chatHistory: chatHistory || [], // Save chatHistory if provided
     });
+    console.log("intereaction",interaction);
 
     await interaction.save();
     res.status(201).json({ message: 'Interaction saved successfully', uniqueId: interaction.uniqueId });

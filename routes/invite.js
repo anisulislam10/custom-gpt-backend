@@ -109,13 +109,46 @@ router.post('/email', authMiddleware, async (req, res) => {
       from: process.env.EMAIL_USER,
       to: email,
       subject: `Invitation to Collaborate on Chatbot Flow`,
-      html: `
-        <h2>You've Been Invited!</h2>
-        <p>You've been invited to collaborate on a chatbot project (Flow ID: ${flowId}) as a ${role || 'collaborator'}.</p>
-        <p><a href="${inviteLink}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Join Now</a></p>
-        <p>Please <a href="${process.env.APP_BASE_URL}/register">register</a> or <a href="${process.env.APP_BASE_URL}/login">log in</a> to accept this invitation.</p>
-        <p>This link will expire in 30 days.</p>
-      `,
+   html: `
+   
+   
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #eaeaea; border-radius: 10px; background-color: #ffffff;">
+    <h2 style="color: #4f46e5;">🎉 You're Invited to Collaborate!</h2>
+    
+    <p style="font-size: 16px; color: #333333;">
+
+      Hello,
+    </p>
+    
+    <p style="font-size: 16px; color: #333333;">
+      You've been invited to collaborate on a chatbot project (<strong>Flow ID: ${flowId}</strong>) as a <strong>${role || 'collaborator'}</strong>.
+    </p>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${inviteLink}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; padding: 14px 24px; font-size: 16px; font-weight: bold; border-radius: 6px; text-decoration: none;">
+        🚀 Join the Project
+      </a>
+    </div>
+
+    <p style="font-size: 14px; color: #555;">
+      If you don’t have an account yet, you can 
+      <a href="${process.env.APP_BASE_URL}/register" style="color: #4f46e5; text-decoration: underline;">register here</a> 
+      or 
+      <a href="${process.env.APP_BASE_URL}/login" style="color: #4f46e5; text-decoration: underline;">log in</a> 
+      to accept the invitation.
+    </p>
+
+    <p style="font-size: 12px; color: #999; margin-top: 20px;">
+      ⏳ This invite link will expire in <strong>30 days</strong>.
+    </p>
+
+    <hr style="margin-top: 30px; border: none; border-top: 1px solid #eaeaea;" />
+
+    <p style="font-size: 12px; color: #aaa; text-align: center;">
+      This invitation was sent by <strong>${process.env.APP_NAME || 'FlowBuilder'}</strong>. If you weren't expecting this, you can safely ignore it.
+    </p>
+  </div>
+`,
     };
 
     await transporter.sendMail(mailOptions);

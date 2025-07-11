@@ -19,6 +19,144 @@ module.exports = router;
 // Create a new flow
 
 // Helper function to check if user is owner or collaborator
+router.get('/statistics/:flowId', async (req, res) => {
+  try {
+    const { flowId } = req.params;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const oneDayAgo = new Date(today);
+    oneDayAgo.setDate(today.getDate() - 1);
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(today.getDate() - 7);
+    const oneMonthAgo = new Date(today);
+    oneMonthAgo.setMonth(today.getMonth() - 1);
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+    const stats = await Interaction.aggregate([
+      { $match: { flowId } },
+      {
+        $group: {
+          _id: '$country',
+          daily: {
+            $addToSet: {
+              $cond: [{ $gte: ['$timestamp', oneDayAgo] }, '$ipAddress', null],
+            },
+          },
+          weekly: {
+            $addToSet: {
+              $cond: [{ $gte: ['$timestamp', oneWeekAgo] }, '$ipAddress', null],
+            },
+          },
+          monthly: {
+            $addToSet: {
+              $cond: [{ $gte: ['$timestamp', oneMonthAgo] }, '$ipAddress', null],
+            },
+          },
+          yearly: {
+            $addToSet: {
+              $cond: [{ $gte: ['$timestamp', oneYearAgo] }, '$ipAddress', null],
+            },
+          },
+          allTime: { $addToSet: '$ipAddress' },
+        },
+      },
+      {
+        $project: {
+          country: '$_id',
+          daily: { $size: { $filter: { input: '$daily', cond: { $ne: ['$$this', null] } } } },
+          weekly: { $size: { $filter: { input: '$weekly', cond: { $ne: ['$$this', null] } } } },
+          monthly: { $size: { $filter: { input: '$monthly', cond: { $ne: ['$$this', null] } } } },
+          yearly: { $size: { $filter: { input: '$yearly', cond: { $ne: ['$$this', null] } } } },
+          allTime: { $size: { $filter: { input: '$allTime', cond: { $ne: ['$$this', null] } } } },
+          _id: 0,
+        },
+      },
+    ]);
+
+    const result = {
+      byCountry: stats,
+      totals: {
+        daily: stats.reduce((sum, stat) => sum + stat.daily, 0),
+        weekly: stats.reduce((sum, stat) => sum + stat.weekly, 0),
+        monthly: stats.reduce((sum, stat) => sum + stat.monthly, 0),
+        yearly: stats.reduce((sum, stat) => sum + stat.yearly, 0),
+        allTime: stats.reduce((sum, stat) => sum + stat.allTime, 0),
+      },
+    };
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('[Statistics] Error fetching stats:', error.message);
+    res.status(500).json({ message: 'Failed to fetch statistics', error: error.message });
+  }
+});
+
+// Form response endpoints (unchanged)
+router.get('/response/detail/:responseId', async (req, res) => {
+  const { responseId } = req.params;
+  console.log('[Backend] Fetching form response details for responseId:', responseId);
+
+  try {
+    if (!responseId) {
+      return res.status(400).json({ message: 'Invalid responseId' });
+    }
+
+    const response = await FormResponse.findById(responseId);
+    if (!response) {
+      return res.status(404).json({ message: `No response found for responseId: ${responseId}` });
+    }
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error fetching form response details:', error);
+    res.status(500).json({ message: 'Failed to fetch response details', error: error.message });
+  }
+});
+
+router.get('/response/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    if (!userId) {
+      return res.status(400).json({ message: 'Invalid userId' });
+    }
+
+    const formResponses = await FormResponse.aggregate([
+      {
+        $match: {
+          userId: userId,
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: { $toDate: '$submitDate' } } },
+          responses: {
+            $push: {
+              _id: '$_id',
+              userEmail: '$userEmail',
+              formName: '$formName',
+              submitDate: '$submitDate',
+              response: '$response',
+            },
+          },
+        },
+      },
+      { $sort: { _id: -1 } },
+      { $project: { date: '$_id', responses: 1, _id: 0 } },
+    ]);
+
+    if (!formResponses.length) {
+      return res.status(404).json({ message: `No responses found for userId: ${userId}` });
+    }
+
+    res.json(formResponses);
+  } catch (error) {
+    console.error('Error fetching form responses:', error);
+    res.status(500).json({ message: 'Failed to fetch responses', error: error.message });
+  }
+});
 const checkFlowAccess = async (userId, flowId) => {
   const flow = await Flow.findOne({ _id: flowId, userId });
   if (flow) return { hasAccess: true, isOwner: true };
@@ -299,143 +437,6 @@ router.get('/check-name', async (req, res) => {
 });
 
 // Statistics endpoint (unchanged)
-router.get('/statistics/:flowId', async (req, res) => {
-  try {
-    const { flowId } = req.params;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const oneDayAgo = new Date(today);
-    oneDayAgo.setDate(today.getDate() - 1);
-    const oneWeekAgo = new Date(today);
-    oneWeekAgo.setDate(today.getDate() - 7);
-    const oneMonthAgo = new Date(today);
-    oneMonthAgo.setMonth(today.getMonth() - 1);
-    const oneYearAgo = new Date(today);
-    oneYearAgo.setFullYear(today.getFullYear() - 1);
-
-    const stats = await Interaction.aggregate([
-      { $match: { flowId } },
-      {
-        $group: {
-          _id: '$country',
-          daily: {
-            $addToSet: {
-              $cond: [{ $gte: ['$timestamp', oneDayAgo] }, '$ipAddress', null],
-            },
-          },
-          weekly: {
-            $addToSet: {
-              $cond: [{ $gte: ['$timestamp', oneWeekAgo] }, '$ipAddress', null],
-            },
-          },
-          monthly: {
-            $addToSet: {
-              $cond: [{ $gte: ['$timestamp', oneMonthAgo] }, '$ipAddress', null],
-            },
-          },
-          yearly: {
-            $addToSet: {
-              $cond: [{ $gte: ['$timestamp', oneYearAgo] }, '$ipAddress', null],
-            },
-          },
-          allTime: { $addToSet: '$ipAddress' },
-        },
-      },
-      {
-        $project: {
-          country: '$_id',
-          daily: { $size: { $filter: { input: '$daily', cond: { $ne: ['$$this', null] } } } },
-          weekly: { $size: { $filter: { input: '$weekly', cond: { $ne: ['$$this', null] } } } },
-          monthly: { $size: { $filter: { input: '$monthly', cond: { $ne: ['$$this', null] } } } },
-          yearly: { $size: { $filter: { input: '$yearly', cond: { $ne: ['$$this', null] } } } },
-          allTime: { $size: { $filter: { input: '$allTime', cond: { $ne: ['$$this', null] } } } },
-          _id: 0,
-        },
-      },
-    ]);
-
-    const result = {
-      byCountry: stats,
-      totals: {
-        daily: stats.reduce((sum, stat) => sum + stat.daily, 0),
-        weekly: stats.reduce((sum, stat) => sum + stat.weekly, 0),
-        monthly: stats.reduce((sum, stat) => sum + stat.monthly, 0),
-        yearly: stats.reduce((sum, stat) => sum + stat.yearly, 0),
-        allTime: stats.reduce((sum, stat) => sum + stat.allTime, 0),
-      },
-    };
-
-    res.status(200).json(result);
-  } catch (error) {
-    console.error('[Statistics] Error fetching stats:', error.message);
-    res.status(500).json({ message: 'Failed to fetch statistics', error: error.message });
-  }
-});
-
-// Form response endpoints (unchanged)
-router.get('/response/detail/:responseId', async (req, res) => {
-  const { responseId } = req.params;
-  console.log('[Backend] Fetching form response details for responseId:', responseId);
-
-  try {
-    if (!responseId) {
-      return res.status(400).json({ message: 'Invalid responseId' });
-    }
-
-    const response = await FormResponse.findById(responseId);
-    if (!response) {
-      return res.status(404).json({ message: `No response found for responseId: ${responseId}` });
-    }
-
-    res.json(response);
-  } catch (error) {
-    console.error('Error fetching form response details:', error);
-    res.status(500).json({ message: 'Failed to fetch response details', error: error.message });
-  }
-});
-
-router.get('/response/:userId', async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    if (!userId) {
-      return res.status(400).json({ message: 'Invalid userId' });
-    }
-
-    const formResponses = await FormResponse.aggregate([
-      {
-        $match: {
-          userId: userId,
-        },
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: { $toDate: '$submitDate' } } },
-          responses: {
-            $push: {
-              _id: '$_id',
-              userEmail: '$userEmail',
-              formName: '$formName',
-              submitDate: '$submitDate',
-              response: '$response',
-            },
-          },
-        },
-      },
-      { $sort: { _id: -1 } },
-      { $project: { date: '$_id', responses: 1, _id: 0 } },
-    ]);
-
-    if (!formResponses.length) {
-      return res.status(404).json({ message: `No responses found for userId: ${userId}` });
-    }
-
-    res.json(formResponses);
-  } catch (error) {
-    console.error('Error fetching form responses:', error);
-    res.status(500).json({ message: 'Failed to fetch responses', error: error.message });
-  }
-});
 
 module.exports = router;

@@ -21,6 +21,8 @@ const packageRoutes = require('./routes/package');
 const widgetRoutes = require('./routes/widget');
 const embedRoutes = require('./routes/embed');
 const chatbotRoutes = require('./routes/chatbot');
+const inviteRoutes = require('./routes/invite');
+
 const app = express();
 
 // Middleware & Security
@@ -57,6 +59,7 @@ app.use('/api/package', packageRoutes);
 app.use('/api/widget', widgetRoutes);
 app.use('/api/embed', embedRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/invites', inviteRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

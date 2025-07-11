@@ -9,6 +9,7 @@ const interactionSchema = new mongoose.Schema({
   date: { type: String, required: true }, // Store date as YYYY-MM-DD
   timestamp: { type: Date, default: Date.now },
   ipAddress: { type: String, default: null },
+  country: { type: String, default: null },
   uniqueId: { type: String, default: () => uuidv4() },
   chatHistory: { type: Array, default: [] }, // New field for chat history
 });

@@ -4,6 +4,9 @@ const router = express.Router();
 const Flow = require('../models/Flow');
 const Interaction = require('../models/Interaction');
 const FormResponse = require('../models/FormResponse');
+const { v4: uuidv4 } = require('uuid');
+const geoip = require('geoip-lite'); // Import geoip-lite
+
 // GET /:flowId/:userId - Serve the chatbot HTML
 router.get('/:flowId/:userId', async (req, res) => {
   
@@ -1889,7 +1892,7 @@ router.post('/interactions', async (req, res) => {
     const { userId, flowId, chatHistory } = req.body;
 
     // Validate required fields
-    if (!userId || !flowId ) {
+    if (!userId || !flowId) {
       return res.status(400).json({ message: 'Missing required interaction parameters' });
     }
 
@@ -1897,18 +1900,25 @@ router.post('/interactions', async (req, res) => {
     const currentDate = new Date().toISOString().split('T')[0]; // e.g., "2025-07-10"
 
     // Get user's IP address
-    const ipAddress = req.ip || 
-                     req.headers['x-forwarded-for']?.split(',')[0].trim() || 
-                     req.socket.remoteAddress || 
-                     null;
+    const ipAddress = req.ip ||
+                      req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+                      req.socket.remoteAddress ||
+                      null;
+
+    // Get country from IP address
+    let country = null;
+    if (ipAddress && ipAddress !== '::1' && ipAddress !== '127.0.0.1') { // Exclude localhost
+      const geo = geoip.lookup(ipAddress.replace('::ffff:', '')); // Remove IPv6 prefix if present
+      country = geo ? geo.country : null; // Get country code (e.g., "US")
+    }
 
     // Create and save the interaction
     const interaction = new Interaction({
       userId,
       flowId,
-      
       date: currentDate,
       ipAddress,
+      country, // Save country
       chatHistory: chatHistory || [], // Save chatHistory if provided
     });
 

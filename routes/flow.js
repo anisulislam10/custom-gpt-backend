@@ -31,15 +31,15 @@ router.get('/statistics/:flowId', async (req, res) => {
     const stats = await Interaction.aggregate([
       // Match interactions for the given flowId
       { $match: { flowId } },
-      // Group by time periods
+      // Group by country and time periods
       {
         $group: {
-          _id: null,
+          _id: '$country', // Group by country (null for interactions without country)
           daily: {
             $addToSet: {
               $cond: [
                 { $gte: ['$timestamp', oneDayAgo] },
-                '$uniqueId',
+                '$ipAddress',
                 null,
               ],
             },
@@ -48,7 +48,7 @@ router.get('/statistics/:flowId', async (req, res) => {
             $addToSet: {
               $cond: [
                 { $gte: ['$timestamp', oneWeekAgo] },
-                '$uniqueId',
+                '$ipAddress',
                 null,
               ],
             },
@@ -57,7 +57,7 @@ router.get('/statistics/:flowId', async (req, res) => {
             $addToSet: {
               $cond: [
                 { $gte: ['$timestamp', oneMonthAgo] },
-                '$uniqueId',
+                '$ipAddress',
                 null,
               ],
             },
@@ -66,28 +66,41 @@ router.get('/statistics/:flowId', async (req, res) => {
             $addToSet: {
               $cond: [
                 { $gte: ['$timestamp', oneYearAgo] },
-                '$uniqueId',
+                '$ipAddress',
                 null,
               ],
             },
           },
-          allTime: { $addToSet: '$uniqueId' },
+          allTime: { $addToSet: '$ipAddress' },
         },
       },
-      // Project to count unique users (excluding null)
+      // Project to count unique interactions per country
       {
         $project: {
+          country: '$_id',
           daily: { $size: { $filter: { input: '$daily', cond: { $ne: ['$$this', null] } } } },
           weekly: { $size: { $filter: { input: '$weekly', cond: { $ne: ['$$this', null] } } } },
           monthly: { $size: { $filter: { input: '$monthly', cond: { $ne: ['$$this', null] } } } },
           yearly: { $size: { $filter: { input: '$yearly', cond: { $ne: ['$$this', null] } } } },
           allTime: { $size: { $filter: { input: '$allTime', cond: { $ne: ['$$this', null] } } } },
+          _id: 0, // Exclude _id field
         },
       },
     ]);
 
-    // Return stats (default to 0 if no results)
-    const result = stats[0] || { daily: 0, weekly: 0, monthly: 0, yearly: 0, allTime: 0 };
+    // Format response to include country breakdown and totals
+    const result = {
+      byCountry: stats, // Array of { country, daily, weekly, monthly, yearly, allTime }
+      totals: {
+        daily: stats.reduce((sum, stat) => sum + stat.daily, 0),
+        weekly: stats.reduce((sum, stat) => sum + stat.weekly, 0),
+        monthly: stats.reduce((sum, stat) => sum + stat.monthly, 0),
+        yearly: stats.reduce((sum, stat) => sum + stat.yearly, 0),
+        allTime: stats.reduce((sum, stat) => sum + stat.allTime, 0),
+      },
+    };
+
+    // Return stats (default to empty array and zero totals if no results)
     res.status(200).json(result);
   } catch (error) {
     console.error('[Statistics] Error fetching stats:', error.message);

@@ -39,7 +39,7 @@ router.get('/statistics/:flowId', async (req, res) => {
             $addToSet: {
               $cond: [
                 { $gte: ['$timestamp', oneDayAgo] },
-                '$uniqueId',
+                '$ipAddress',
                 null,
               ],
             },
@@ -48,7 +48,7 @@ router.get('/statistics/:flowId', async (req, res) => {
             $addToSet: {
               $cond: [
                 { $gte: ['$timestamp', oneWeekAgo] },
-                '$uniqueId',
+                '$ipAddress',
                 null,
               ],
             },
@@ -57,7 +57,7 @@ router.get('/statistics/:flowId', async (req, res) => {
             $addToSet: {
               $cond: [
                 { $gte: ['$timestamp', oneMonthAgo] },
-                '$uniqueId',
+                '$ipAddress',
                 null,
               ],
             },
@@ -66,12 +66,12 @@ router.get('/statistics/:flowId', async (req, res) => {
             $addToSet: {
               $cond: [
                 { $gte: ['$timestamp', oneYearAgo] },
-                '$uniqueId',
+                '$ipAddress',
                 null,
               ],
             },
           },
-          allTime: { $addToSet: '$uniqueId' },
+          allTime: { $addToSet: '$ipAddress' },
         },
       },
       // Project to count unique interactions per country

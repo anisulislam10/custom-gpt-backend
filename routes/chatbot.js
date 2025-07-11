@@ -1902,8 +1902,7 @@ router.post('/interactions', async (req, res) => {
     const currentDate = new Date().toISOString().split('T')[0]; // e.g., "2025-07-10"
 
     // Get user's IP address
-    const ipAddress = req.ip ||
-                      req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0].trim() ||
                       req.socket.remoteAddress ||
                       null;
 

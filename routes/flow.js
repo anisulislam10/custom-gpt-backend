@@ -147,6 +147,7 @@ router.get('/response/:userId', async (req, res) => {
       { $project: { date: '$_id', responses: 1, _id: 0 } },
     ]);
 
+    
     if (!formResponses.length) {
       return res.status(404).json({ message: `No responses found for userId: ${userId}` });
     }

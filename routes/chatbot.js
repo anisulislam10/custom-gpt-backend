@@ -168,24 +168,29 @@ router.get('/script.js', async (req, res) => {
     return;
   }
   window.chatbotInitialized = true; 
-    window.addEventListener('message', (event) => {
-    if (event.data.type === 'updateChatbotConfig' && event.data.config) {
-      try {
-        window.ChatbotConfig = event.data.config;
-        // Clean up existing chatbot elements before re-initializing
-        const container = document.getElementById('chatbot-container');
-        if (container) {
-          container.innerHTML = '';
-        }
-        const existingToggles = document.querySelectorAll('#chatbot-toggle');
-        existingToggles.forEach(toggle => toggle.remove());
-        window.chatbotInitialized = false; // Allow re-initialization
-        window.initChatbot(); // Re-run initialization with new config
-      } catch (error) {
-        console.error('[Chatbot] Error handling config update:', error.message);
+  window.addEventListener('message', (event) => {
+  if (event.data.type === 'updateChatbotConfig' && event.data.config) {
+    try {
+      window.ChatbotConfig = event.data.config;
+      // Clean up existing chatbot elements before re-initializing
+      const container = document.getElementById('chatbot-container');
+      if (container) {
+        container.innerHTML = '';
       }
+      const existingToggles = document.querySelectorAll('#chatbot-toggle');
+      existingToggles.forEach(toggle => toggle.remove());
+      window.chatbotInitialized = false; // Allow re-initialization
+      window.initChatbot(); // Re-run initialization with new config
+      // Explicitly call updateResponsiveStyles to ensure position updates
+      setTimeout(() => {
+        // updateResponsiveStyles();
+      }, 100); // Small delay to ensure DOM is ready
+    } catch (error) {
+      console.error('[Chatbot] Error handling config update:', error.message);
     }
-  });
+  }
+});
+  
         
         // Delay initialization to ensure DOM is ready
         setTimeout(() => {

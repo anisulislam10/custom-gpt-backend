@@ -168,6 +168,24 @@ router.get('/script.js', async (req, res) => {
     return;
   }
   window.chatbotInitialized = true; 
+    window.addEventListener('message', (event) => {
+    if (event.data.type === 'updateChatbotConfig' && event.data.config) {
+      try {
+        window.ChatbotConfig = event.data.config;
+        // Clean up existing chatbot elements before re-initializing
+        const container = document.getElementById('chatbot-container');
+        if (container) {
+          container.innerHTML = '';
+        }
+        const existingToggles = document.querySelectorAll('#chatbot-toggle');
+        existingToggles.forEach(toggle => toggle.remove());
+        window.chatbotInitialized = false; // Allow re-initialization
+        window.initChatbot(); // Re-run initialization with new config
+      } catch (error) {
+        console.error('[Chatbot] Error handling config update:', error.message);
+      }
+    }
+  });
         
         // Delay initialization to ensure DOM is ready
         setTimeout(() => {
@@ -559,51 +577,58 @@ router.get('/script.js', async (req, res) => {
 
             // Responsive styles
             const updateResponsiveStyles = () => {
-              if (window.innerWidth <= 480) {
-                if (isChatbotOpen) {
-                  chatbotWrapper.style.width = '100vw';
-                  chatbotWrapper.style.height = '100vh';
-                  chatbotWrapper.style.borderRadius = '0';
-                  chatbotWrapper.style.top = '0';
-                  chatbotWrapper.style.right = '0';
-                  chatbotWrapper.style.bottom = '0';
-                  chatbotWrapper.style.left = '0';
-                  chatbotWrapper.style.zIndex = '9999';
-                  chatbotWrapper.style.display = 'flex';
-                  chatbotWrapper.style.pointerEvents = 'auto';
-                  chatbotWrapper.style.opacity = '1';
-                  chatbotWrapper.style.visibility = 'visible';
-                } else {
-                  setClosedState();
-                }
-              } else {
-                if (isChatbotOpen) {
-                  chatbotWrapper.style.width = '400px';
-                  chatbotWrapper.style.height = '600px';
-                  chatbotWrapper.style.borderRadius = '16px';
-                  chatbotWrapper.style.top = '';
-                  chatbotWrapper.style.right = '20px';
-                  chatbotWrapper.style.bottom = '90px';
-                  chatbotWrapper.style.left = '';
-                  chatbotWrapper.style.zIndex = '9999';
-                  chatbotWrapper.style.display = 'flex';
-                  chatbotWrapper.style.pointerEvents = 'auto';
-                  chatbotWrapper.style.opacity = '1';
-                  chatbotWrapper.style.visibility = 'visible';
-                } else {
-                  setClosedState();
-                }
-              }
-              if (!isChatbotOpen && !document.body.contains(toggleIcon)) {
-                document.body.appendChild(toggleIcon);
-                toggleIcon.classList.remove('chatbot-toggle-hidden');
-                toggleIcon.classList.add('chatbot-toggle-visible');
-              } else if (isChatbotOpen && document.body.contains(toggleIcon)) {
-                toggleIcon.remove();
-                console.log('[Chatbot] Toggle removed from DOM by updateResponsiveStyles');
-              }
-             
-            };
+  const [vertical, horizontal] = (window.ChatbotConfig.position || 'bottom-right').split('-');
+  const isMobile = window.innerWidth <= 480;
+
+  if (isMobile) {
+    if (isChatbotOpen) {
+      chatbotWrapper.style.width = '100vw';
+      chatbotWrapper.style.height = '100vh';
+      chatbotWrapper.style.borderRadius = '0';
+      chatbotWrapper.style.top = '0';
+      chatbotWrapper.style.right = '0';
+      chatbotWrapper.style.bottom = '0';
+      chatbotWrapper.style.left = '0';
+      chatbotWrapper.style.zIndex = '9999';
+      chatbotWrapper.style.display = 'flex';
+      chatbotWrapper.style.pointerEvents = 'auto';
+      chatbotWrapper.style.opacity = '1';
+      chatbotWrapper.style.visibility = 'visible';
+    } else {
+      setClosedState();
+    }
+  } else {
+    if (isChatbotOpen) {
+      chatbotWrapper.style.width = '400px';
+      chatbotWrapper.style.height = '600px';
+      chatbotWrapper.style.borderRadius = '16px';
+      chatbotWrapper.style.top = vertical === 'top' ? '20px' : '';
+      chatbotWrapper.style.right = horizontal === 'right' ? '20px' : '';
+      chatbotWrapper.style.bottom = vertical === 'bottom' ? '90px' : '';
+      chatbotWrapper.style.left = horizontal === 'left' ? '20px' : '';
+      chatbotWrapper.style.zIndex = '9999';
+      chatbotWrapper.style.display = 'flex';
+      chatbotWrapper.style.pointerEvents = 'auto';
+      chatbotWrapper.style.opacity = '1';
+      chatbotWrapper.style.visibility = 'visible';
+    } else {
+      setClosedState();
+    }
+  }
+
+  if (!isChatbotOpen && !document.body.contains(toggleIcon)) {
+    document.body.appendChild(toggleIcon);
+    toggleIcon.classList.remove('chatbot-toggle-hidden');
+    toggleIcon.classList.add('chatbot-toggle-visible');
+    toggleIcon.style.position = 'fixed';
+    toggleIcon.style[vertical] = isMobile ? '40px' : '20px';
+    toggleIcon.style[horizontal] = '20px';
+    toggleIcon.style.zIndex = '10000';
+  } else if (isChatbotOpen && document.body.contains(toggleIcon)) {
+    toggleIcon.remove();
+    console.log('[Chatbot] Toggle removed from DOM by updateResponsiveStyles');
+  }
+};
 
             // Debounce resize event
             let resizeTimeout;
@@ -1498,7 +1523,7 @@ function buildFormEmailHtml() {
     </div>
   \`;
 }
-  
+
 async function saveInteraction(node, userInput, chatHistory = null) {
   const payload = {
     userId: config.userId,

@@ -1856,6 +1856,7 @@ function showErrorMessage(message) {
                 }
                 .chatbot-input {
                   padding: 12px 16px !important;
+                          margin-bottom: 34px  !important;
                 }
                 .chatbot-input input {
                   font-size: 14px !important;
@@ -1863,11 +1864,7 @@ function showErrorMessage(message) {
                 .message {
                   max-width: 85% !important;
                 }
-                  #chatbot-bottom-input{
-                      display: flex;
-    gap: 12px;
-    margin-bottom: 35px;
-}
+  
     
                   }
                   

@@ -1852,6 +1852,7 @@ function showErrorMessage(message) {
                 .chatbot-messages {
                   padding: 16px !important;
                   font-size: 14px !important;
+                  bottom: 40px !important; 
                 }
                 .chatbot-input {
                   padding: 12px 16px !important;
@@ -1862,6 +1863,14 @@ function showErrorMessage(message) {
                 .message {
                   max-width: 85% !important;
                 }
+                  #chatbot-bottom-input{
+                      display: flex;
+    gap: 12px;
+    margin-bottom: 25px;
+}
+    
+                  }
+                  
               }
               @media (hover: none) {
                 button:hover, input:focus {

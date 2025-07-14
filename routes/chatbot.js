@@ -1866,7 +1866,7 @@ function showErrorMessage(message) {
                   #chatbot-bottom-input{
                       display: flex;
     gap: 12px;
-    margin-bottom: 25px;
+    margin-bottom: 35px;
 }
     
                   }

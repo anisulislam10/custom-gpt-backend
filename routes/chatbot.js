@@ -13,7 +13,7 @@ app.set('trust proxy', true);
 
 // GET /:flowId/:userId - Serve the chatbot HTML
 router.get('/:flowId/:userId', async (req, res) => {
-  
+
   try {
     const { flowId, userId } = req.params;
     const { domain, preview } = req.query;
@@ -38,43 +38,43 @@ router.get('/:flowId/:userId', async (req, res) => {
     }
 
     // Normalize and validate website domain (skip in preview mode)
-// if (!isPreview) {
-//   const normalizedDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-//   const normalizedStoredDomain = flow.websiteDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    // if (!isPreview) {
+    //   const normalizedDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    //   const normalizedStoredDomain = flow.websiteDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
-//   // Check if the provided domain matches the stored domain
-//   if (normalizedDomain !== normalizedStoredDomain) {
-//     console.error(`[Chatbot] Domain mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedDomain}`);
-//     return res.status(403).json({ message: 'Invalid or unauthorized domain' });
-//   }
+    //   // Check if the provided domain matches the stored domain
+    //   if (normalizedDomain !== normalizedStoredDomain) {
+    //     console.error(`[Chatbot] Domain mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedDomain}`);
+    //     return res.status(403).json({ message: 'Invalid or unauthorized domain' });
+    //   }
 
-//   // Validate request Origin (optional, for additional security)
-//   const origin = req.get('Origin') || '';
-//   if (origin) {
-//     const normalizedOrigin = origin.replace(/^https?:\/\//, '').replace(/\/$/, '');
-//     if (normalizedOrigin !== normalizedStoredDomain) {
-//       console.error(`[Chatbot] Origin mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedOrigin}`);
-//       return res.status(403).json({ message: 'Invalid request origin' });
-//     }
-//   }
+    //   // Validate request Origin (optional, for additional security)
+    //   const origin = req.get('Origin') || '';
+    //   if (origin) {
+    //     const normalizedOrigin = origin.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    //     if (normalizedOrigin !== normalizedStoredDomain) {
+    //       console.error(`[Chatbot] Origin mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedOrigin}`);
+    //       return res.status(403).json({ message: 'Invalid request origin' });
+    //     }
+    //   }
 
-//   // Validate browser base URL via Referer header (optional, for additional security)
-//   const referer = req.get('Referer') || '';
-//   if (referer) {
-//     // Extract the hostname from the Referer URL
-//     try {
-//       const refererUrl = new URL(referer);
-//       const normalizedReferer = refererUrl.hostname.replace(/\/$/, '');
-//       if (normalizedReferer !== normalizedStoredDomain) {
-//         console.error(`[Chatbot] Referer mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedReferer}`);
-//         return res.status(403).json({ message: 'Invalid request referer' });
-//       }
-//     } catch (error) {
-//       console.error(`[Chatbot] Invalid Referer header: ${referer}, error: ${error.message}`);
-//       return res.status(400).json({ message: 'Invalid Referer header' });
-//     }
-//   }
-// }
+    //   // Validate browser base URL via Referer header (optional, for additional security)
+    //   const referer = req.get('Referer') || '';
+    //   if (referer) {
+    //     // Extract the hostname from the Referer URL
+    //     try {
+    //       const refererUrl = new URL(referer);
+    //       const normalizedReferer = refererUrl.hostname.replace(/\/$/, '');
+    //       if (normalizedReferer !== normalizedStoredDomain) {
+    //         console.error(`[Chatbot] Referer mismatch - expected: ${normalizedStoredDomain}, received: ${normalizedReferer}`);
+    //         return res.status(403).json({ message: 'Invalid request referer' });
+    //       }
+    //     } catch (error) {
+    //       console.error(`[Chatbot] Invalid Referer header: ${referer}, error: ${error.message}`);
+    //       return res.status(400).json({ message: 'Invalid Referer header' });
+    //     }
+    //   }
+    // }
 
 
 
@@ -1498,6 +1498,7 @@ function buildFormEmailHtml() {
     </div>
   \`;
 }
+  
 async function saveInteraction(node, userInput, chatHistory = null) {
   const payload = {
     userId: config.userId,
@@ -1864,8 +1865,6 @@ function showErrorMessage(message) {
                 .message {
                   max-width: 85% !important;
                 }
-  
-    
                   }
                   
               }
@@ -1898,7 +1897,7 @@ function showErrorMessage(message) {
 // POST /interactions - Save a complete interaction
 // POST /interactions - Save a complete interaction
 router.post('/interactions', async (req, res) => {
-          console.log("intereaction");
+  console.log("intereaction");
 
   try {
     const { userId, flowId, chatHistory } = req.body;
@@ -1913,8 +1912,8 @@ router.post('/interactions', async (req, res) => {
 
     // Get user's IP address
     const ipAddress = req.headers['x-forwarded-for']?.split(',')[0].trim() ||
-                      req.socket.remoteAddress ||
-                      null;
+      req.socket.remoteAddress ||
+      null;
 
     // Get country from IP address
     let country = null;
@@ -1922,7 +1921,7 @@ router.post('/interactions', async (req, res) => {
       const geo = geoip.lookup(ipAddress.replace('::ffff:', '')); // Remove IPv6 prefix if present
       country = geo ? geo.country : null; // Get country code (e.g., "US")
     }
-        console.log("intereaction",country);
+    console.log("intereaction", country);
 
 
     // Create and save the interaction
@@ -1934,7 +1933,7 @@ router.post('/interactions', async (req, res) => {
       country, // Save country
       chatHistory: chatHistory || [], // Save chatHistory if provided
     });
-    console.log("intereaction",interaction);
+    console.log("intereaction", interaction);
 
     await interaction.save();
     res.status(201).json({ message: 'Interaction saved successfully', uniqueId: interaction.uniqueId });
@@ -1967,7 +1966,7 @@ router.get('/interactions/:flowId/:userId', async (req, res) => {
       if (!acc[date]) {
         acc[date] = { date, interactions: [] };
       }
-      
+
       acc[date].interactions.push({
         _id: interaction._id,
         uniqueId: interaction.uniqueId,
